@@ -30,12 +30,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                 ]
-                input[1] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
-                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
-                input[3] = []
+                input[1] = 'hg19'
+                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
+                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
                 input[4] = []
-                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
-                input[6] = []
+                input[5] = []
+                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
+                input[7] = []
                 """
             }
         }
@@ -85,12 +86,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                 ]
-                input[1] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
-                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
-                input[3] = []
+                input[1] = 'hg19'
+                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
+                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
                 input[4] = []
                 input[5] = []
                 input[6] = []
+                input[7] = []
                 """
             }
         }
@@ -140,12 +142,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram.crai', checkIfExists: true)
                 ]
-                input[1] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
-                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
-                input[3] = []
-                input[4] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
-                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
-                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
+                input[1] = 'hg19'
+                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
+                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
+                input[4] = []
+                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
+                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
+                input[7] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
                 """
             }
         }
@@ -196,12 +199,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram.crai', checkIfExists: true)
                 ]
-                input[1] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
-                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
-                input[3] = []
-                input[4] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
-                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
-                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
+                input[1] = 'hg19'
+                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
+                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
+                input[4] = []
+                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
+                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
+                input[7] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
                 """
             }
         }
@@ -238,7 +242,8 @@ nextflow_process {
                     minCounts :  '1',
                     min_base_qual : '1',
                     min_map_qual  : '1',
-                    chrom_names  : 'c("21")'
+                    chrom_names  : 'c("21")',
+                    pdf_plots    : true
                 ]
                 allele_folder = "G1000_alleles_hg38"
                 loci_folder   = "G1000_loci_hg38"
@@ -275,12 +280,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                 ]
-                input[1] = file(params.allele_folder, checkIfExists: true)
-                input[2] = file(params.loci_folder, checkIfExists: true)
-                input[3] = []
+                input[1] = 'hg19'
+                input[2] = file(params.allele_folder, checkIfExists: true)
+                input[3] = file(params.loci_folder, checkIfExists: true)
                 input[4] = []
-                input[5] = file(params.gc_folder, checkIfExists: true)
-                input[6] = file(params.rt_folder, checkIfExists: true)
+                input[5] = []
+                input[6] = file(params.gc_folder, checkIfExists: true)
+                input[7] = file(params.rt_folder, checkIfExists: true)
                 """
             }
         }
@@ -298,6 +304,7 @@ nextflow_process {
                     process.out.metrics,
                     // This discrepancy affect the png generated
                     process.out.png.collect{it[1].collect{file(it).name}},
+                    process.out.pdf.collect{it[1].collect{file(it).name}},
                     process.out.purityploidy,
                     process.out.segments,
                     process.out.segments_raw,
@@ -314,7 +321,7 @@ nextflow_process {
 
         when {
             params {
-                module_args = ''
+                module_args = [ pdf_plots: true ]
             }
             process {
                 """
@@ -325,12 +332,13 @@ nextflow_process {
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.sorted.bam', checkIfExists: true),
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.sorted.bam.bai', checkIfExists: true)
                 ]
-                input[1] = []
+                input[1] = 'hg19'
                 input[2] = []
                 input[3] = []
                 input[4] = []
                 input[5] = []
                 input[6] = []
+                input[7] = []
                 """
             }
         }

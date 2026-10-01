@@ -1,0 +1,200 @@
+nextflow_process {
+
+    name "Test Process CH_VARIANTS"
+    script "../main.nf"
+    process "CH_VARIANTS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "ch_variants"
+
+    // Fixtures (plain-text sources kept next to the .vcf.gz for readability):
+    //   somatic_vep.vcf  -- sample SAMPLE. NRAS hit; a DNMT3A site that also carries ASXL2 and a
+    //                       non-CH gene in its CSQ; a TET2 hit; a CFTR (non-CH) site; a record
+    //                       with no CSQ value at all.
+    //   germline_vep.vcf -- sample 'tumor'. The same TET2 site as the somatic arm; GAPDH (non-CH);
+    //                       a TP53 hit.
+    //   germline_no_csq.vcf -- sample 'tumor', no CSQ header, one TP53-located record.
+    //   test_genes.txt   -- comment, blank line, duplicate and a CRLF line, to exercise the
+    //                       gene-list normalisation.
+    // The two arms deliberately use different sample names: the module must rename both to
+    // meta.id or bcftools concat refuses to merge them.
+
+    test("test gene list - somatic and germline hits") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', paired_data:false ],
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_vep.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_vep.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = file("\${projectDir}/modules/local/ch_variants/tests/test_genes.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def all     = path(process.out.vcf[0][1]).linesGzip
+            def records = all.findAll { line -> !line.startsWith('#') }
+            def header  = all.findAll { line -> line.startsWith('##') }.join('\n')
+            def chrom   = all.find { line -> line.startsWith('#CHROM') }
+            // CHROM:POS -> [CH_ORIGIN, CH_GENE] for each record
+            def calls   = records.collect { line ->
+                def f    = line.split('\t')
+                def info = f[7].split(';').collectEntries { kv -> kv.contains('=') ? [(kv.split('=')[0]): kv.split('=', 2)[1]] : [(kv): true] }
+                [ "${f[0]}:${f[1]}".toString(), info.CH_ORIGIN, info.CH_GENE ]
+            }
+            def tsv = path(process.out.tsv[0][1]).readLines()
+
+            assertAll(
+                { assert header.contains('##INFO=<ID=CH_GENE,Number=.,Type=String,Description="CH gene(s) from VEP SYMBOL">') },
+                { assert header.contains('##INFO=<ID=CH_ORIGIN,Number=1,Type=String,Description="somatic or germline call set">') },
+                // both arms renamed to meta.id so concat could merge them
+                { assert chrom.split('\t')[9] == 'test' },
+                { assert chrom.split('\t').size() == 10 },
+                // NRAS, DNMT3A(+ASXL2), TET2 somatic; TET2 and TP53 germline. CFTR, GAPDH and
+                // the CSQ-less record are dropped. The TET2 site is reported once per origin.
+                { assert calls.size() == 5 },
+                { assert calls.contains([ 'chr1:114716126', 'somatic',  'NRAS' ]) },
+                { assert calls.contains([ 'chr2:25234373',  'somatic',  'ASXL2,DNMT3A' ]) },
+                { assert calls.contains([ 'chr4:105236000', 'somatic',  'TET2' ]) },
+                { assert calls.contains([ 'chr4:105236000', 'germline', 'TET2' ]) },
+                { assert calls.contains([ 'chr17:7675088',  'germline', 'TP53' ]) },
+                // original annotations survive
+                { assert records.every { it.contains('CSQ=') } },
+                // coordinate-sorted
+                { assert calls.collect { it[0] } == [ 'chr1:114716126', 'chr2:25234373', 'chr4:105236000', 'chr4:105236000', 'chr17:7675088' ] },
+                { assert tsv[0] == 'CHROM\tPOS\tREF\tALT\tCH_ORIGIN\tSYMBOL\tConsequence\tIMPACT' },
+                // one row per CH CSQ entry: DNMT3A and ASXL2 each get a row; FAKEGENE1 does not
+                { assert tsv.size() == 7 },
+                { assert tsv.contains('chr2\t25234373\tC\tT\tsomatic\tASXL2\tupstream_gene_variant\tMODIFIER') },
+                { assert !tsv.any { it.contains('FAKEGENE1') || it.contains('CFTR') || it.contains('GAPDH') } },
+                { assert snapshot(
+                    records,
+                    process.out.tsv,
+                    process.out.findAll { key, val -> key.startsWith('versions') }
+                ).match() }
+            )
+        }
+    }
+
+    test("pipeline CH gene list") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', paired_data:false ],
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_vep.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_vep.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = file("\${projectDir}/assets/ch_genes.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def records = path(process.out.vcf[0][1]).linesGzip.findAll { line -> !line.startsWith('#') }
+            def genes   = path(process.out.tsv[0][1]).readLines().drop(1).collect { it.split('\t')[5] }.unique().sort()
+
+            assertAll(
+                { assert records.size() == 5 },
+                { assert genes == [ 'ASXL2', 'DNMT3A', 'NRAS', 'TET2', 'TP53' ] },
+                { assert snapshot(records, process.out.tsv).match() }
+            )
+        }
+    }
+
+    test("germline arm without CSQ - somatic hits only") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', paired_data:false ],
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/somatic_vep.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = file("\${projectDir}/modules/local/ch_variants/tests/test_genes.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def all     = path(process.out.vcf[0][1]).linesGzip
+            def records = all.findAll { line -> !line.startsWith('#') }
+
+            assertAll(
+                { assert all.any { it.startsWith('##INFO=<ID=CH_GENE,') } },
+                { assert records.size() == 3 },
+                { assert records.every { it.contains('CH_ORIGIN=somatic') } },
+                { assert path(process.out.tsv[0][1]).readLines().drop(1).every { it.split('\t')[4] == 'somatic' } }
+            )
+        }
+    }
+
+    test("no CH hits - header-only VCF") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', paired_data:false ],
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/modules/local/ch_variants/tests/germline_no_csq.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = file("\${projectDir}/modules/local/ch_variants/tests/test_genes.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def all = path(process.out.vcf[0][1]).linesGzip
+
+            assertAll(
+                // same file name for both arms: only works because each arm is staged separately
+                { assert all.any { it.startsWith('##INFO=<ID=CH_GENE,') } },
+                { assert all.any { it.startsWith('##INFO=<ID=CH_ORIGIN,') } },
+                { assert all.findAll { !it.startsWith('#') }.isEmpty() },
+                { assert path(process.out.tsv[0][1]).readLines() == [ 'CHROM\tPOS\tREF\tALT\tCH_ORIGIN\tSYMBOL\tConsequence\tIMPACT' ] }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [ [ id:'test', paired_data:false ], [], [], [], [] ]
+                input[1] = []
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+    }
+}

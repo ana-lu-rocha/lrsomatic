@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "severus_pon_filter"
+description: |
+  Flags Severus SV calls whose breakpoints match a Severus panel of normals, using the same test
+  Severus 1.6 applies with --PON (extract_pon/add_pon in breakpoint_finder.py). Meant for matched
+  tumour/normal runs, where Severus is run without --PON because its PON check would otherwise
+  override the matched normal. Matching records get FILTER PON and INFO/PON_MATCH; both breakends
+  of a BND pair get the same verdict. Severus does not write the breakpoint CI to the VCF, so a CI
+  of 0 is assumed (`--ci` through task.ext.args), which can only flag fewer calls than Severus would.
+keywords:
+  - panel of normals
+  - structural variants
+  - filter
+  - severus
+tools:
+  - "severus":
+      description: "Somatic structural variant caller for long reads; this module reimplements its PON matching."
+      homepage: "https://github.com/KolmogorovLab/Severus"
+      documentation: "https://github.com/KolmogorovLab/Severus"
+      tool_dev_url: "https://github.com/KolmogorovLab/Severus"
+      licence: ["BSD-3-clause"]
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - vcf:
+        type: file
+        description: Severus SV VCF (severus_somatic.vcf.gz), plain or gzipped
+        pattern: "*.{vcf,vcf.gz}"
+  - - meta2:
+        type: map
+        description: Groovy Map describing the panel
+    - pon:
+        type: file
+        description: Severus PON, comma-separated chr1,pos1,chr2,pos2,ci1,ci2,svtype,vaf (plain or gzipped)
+        pattern: "*.{tsv,tsv.gz,csv,csv.gz,txt,txt.gz}"
+    - vntr_bed:
+        type: file
+        description: VNTR BED that Severus was run with (--vntr-bed); optional (`[]`)
+        pattern: "*.{bed,bed.gz}"
+output:
+  flagged:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.pon_flagged.vcf.gz":
+          type: file
+          description: All calls, PON matches carrying FILTER PON and INFO/PON_MATCH
+          pattern: "*.pon_flagged.vcf.gz"
+      - "${prefix}.pon_flagged.vcf.gz.tbi":
+          type: file
+          description: Index of the flagged VCF
+          pattern: "*.pon_flagged.vcf.gz.tbi"
+  vcf:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.pon_pass.vcf.gz":
+          type: file
+          description: Calls without the PON matches (other FILTER values are kept)
+          pattern: "*.pon_pass.vcf.gz"
+      - "${prefix}.pon_pass.vcf.gz.tbi":
+          type: file
+          description: Index of the pass VCF
+          pattern: "*.pon_pass.vcf.gz.tbi"
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.pon_stats.tsv":
+          type: file
+          description: Per-sample record counts (sample, total, pon_flagged)
+          pattern: "*.pon_stats.tsv"
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - python:
+          type: string
+          description: The tool name
+      - "python3 --version | sed 's/Python //'":
+          type: string
+          description: The command used to generate the version of the tool
+  versions_tabix:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - tabix:
+          type: string
+          description: The tool name
+      - "tabix --version | sed '1!d; s/.* //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - python:
+          type: string
+          description: The tool name
+      - "python3 --version | sed 's/Python //'":
+          type: string
+          description: The command used to generate the version of the tool
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - tabix:
+          type: string
+          description: The tool name
+      - "tabix --version | sed '1!d; s/.* //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+authors:
+  - "@ana-lu-rocha"
+maintainers:
+  - "@ana-lu-rocha"

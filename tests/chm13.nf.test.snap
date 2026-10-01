@@ -2,6 +2,9 @@
     "-profile test_chm13": {
         "content": [
             {
+                "ASAP_PON_FILTER": {
+                    "bcftools": 1.2
+                },
                 "BCFTOOLS_CONCAT": {
                     "bcftools": 1.22
                 },
@@ -10,6 +13,9 @@
                 },
                 "BCFTOOLS_VIEW": {
                     "bcftools": 1.22
+                },
+                "CH_VARIANTS": {
+                    "bcftools": 1.2
                 },
                 "CLAIR3": {
                     "clair3": "1.2.0"
@@ -94,6 +100,10 @@
                 "SEVERUS": {
                     "severus": 1.6
                 },
+                "SEVERUS_PON_FILTER": {
+                    "python": "3.13.5",
+                    "tabix": "1.22.1"
+                },
                 "SOMATIC_VEP": {
                     "ensemblvep": 115.2,
                     "perl-math-cdf": 0.1,
@@ -148,6 +158,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-23T10:46:28.14524359"
+        "timestamp": "2026-10-01T16:21:28.396534023"
     }
 }

@@ -1,0 +1,159 @@
+{
+    "without the VNTR BED a VNTR call gets the regular window": {
+        "content": [
+            [
+                "sample\ttotal\tpon_flagged",
+                "test\t11\t6"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:50:28.398202229"
+    },
+    "flags PON matches the way Severus add_pon does": {
+        "content": [
+            [
+                "sample\ttotal\tpon_flagged",
+                "test\t11\t7"
+            ],
+            [
+                [
+                    "SEVERUS_PON_FILTER",
+                    "python",
+                    "3.13.5"
+                ]
+            ],
+            [
+                [
+                    "SEVERUS_PON_FILTER",
+                    "tabix",
+                    "1.22.1"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:50:22.981276002"
+    },
+    "stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_flagged.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_severus_somatic.pon_flagged.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_pass.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_severus_somatic.pon_pass.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_stats.tsv:md5,91e3318f68e513cb7504f7c0e6bda0d1"
+                    ]
+                ],
+                "3": [
+                    [
+                        "SEVERUS_PON_FILTER",
+                        "python",
+                        "3.13.5"
+                    ]
+                ],
+                "4": [
+                    [
+                        "SEVERUS_PON_FILTER",
+                        "tabix",
+                        "1.22.1"
+                    ]
+                ],
+                "flagged": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_flagged.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_severus_somatic.pon_flagged.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "stats": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_stats.tsv:md5,91e3318f68e513cb7504f7c0e6bda0d1"
+                    ]
+                ],
+                "vcf": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_severus_somatic.pon_pass.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_severus_somatic.pon_pass.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SEVERUS_PON_FILTER",
+                        "python",
+                        "3.13.5"
+                    ]
+                ],
+                "versions_tabix": [
+                    [
+                        "SEVERUS_PON_FILTER",
+                        "tabix",
+                        "1.22.1"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:50:44.442474077"
+    },
+    "a larger assumed CI widens the match": {
+        "content": [
+            [
+                "sample\ttotal\tpon_flagged",
+                "test\t11\t9"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:50:33.750520093"
+    },
+    "header-only VCF": {
+        "content": [
+            [
+                "sample\ttotal\tpon_flagged",
+                "empty\t0\t0"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:50:38.896521144"
+    }
+}

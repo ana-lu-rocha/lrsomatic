@@ -1,0 +1,17 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=242193529>
+##contig=<ID=chr4,length=190214555>
+##contig=<ID=chr7,length=159345973>
+##contig=<ID=chr12,length=133275309>
+##contig=<ID=chr17,length=83257441>
+##INFO=<ID=GERMLINE,Number=0,Type=Flag,Description="Record originates from the germline call set">
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence annotations from Ensembl VEP. Format: Allele|Consequence|IMPACT|SYMBOL|Gene|Feature_type|Feature|BIOTYPE|HGVSp|Existing_variation|SIFT|PolyPhen">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=AF,Number=1,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	tumor
+chr4	105236000	.	G	A	25.0	PASS	GERMLINE;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||	GT:DP:AF	0/1:47:0.48
+chr12	6534512	.	C	T	25.0	PASS	GERMLINE;CSQ=T|synonymous_variant|LOW|GAPDH|ENSG00000111640|Transcript|ENST00000229239|protein_coding|ENSP00000229239.5:p.Leu5%3D|||	GT:DP:AF	0/1:60:0.50
+chr17	7675088	.	C	A	25.0	PASS	GERMLINE;CSQ=A|stop_gained|HIGH|TP53|ENSG00000141510|Transcript|ENST00000269305|protein_coding|ENSP00000269305.4:p.Arg213Ter|rs397516436||	GT:DP:AF	0/1:55:0.51

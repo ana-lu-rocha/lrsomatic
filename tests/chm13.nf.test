@@ -29,6 +29,15 @@ nextflow_pipeline {
                     assert file("$outputDir/sample2/variants/severus/somatic_SVs/severus_somatic.vcf.gz").exists()
                     assert file("$outputDir/sample2/variants/savana/sample2.classified.somatic.vcf").exists()
                     assert file("$outputDir/sample3/variants/clairsto/somatic.vcf.gz").exists()
+                    // matched samples: ASAP PON small-variant flags and the SV PON post-filter
+                    ['sample1', 'sample2'].each { s ->
+                        assert file("$outputDir/${s}/variants/asap/${s}_somatic.asap_flagged.vcf.gz").exists()
+                        assert file("$outputDir/${s}/variants/asap/${s}_somatic.asap_stats.tsv").exists()
+                        assert file("$outputDir/${s}/variants/severus/pon_filter/${s}_severus_somatic.pon_flagged.vcf.gz").exists()
+                    }
+                    // tumor-only sample: clonal hematopoiesis gene variants
+                    assert file("$outputDir/sample3/vep/ch/sample3_CH_variants.vcf.gz").exists()
+                    assert file("$outputDir/sample3/vep/ch/sample3_CH_variants.tsv").exists()
                     // sample3 (tumor-only) SAVANA output isn't asserted: `savana to` bundles CNA
                     // internally, and errorStrategy='ignore' on its CNA sparsity failures can
                     // discard the whole process's output, not just the CNA files (see PR description).

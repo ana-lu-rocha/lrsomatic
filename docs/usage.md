@@ -131,7 +131,7 @@ Setting `--vep_genome T2T-CHM13v2.0` by hand, without `--genome CHM13`, resolves
 
 For mutational signatures, `--genome CHM13` selects the `CHM13-T2T` SigProfilerMatrixGenerator genome. Its payload is not on the AlexandrovLab FTP yet, so `--download_sigprofiler_genome` fetches it from the IntGenomicsLab Globus collection (`--sigprofiler_genome_url`); see [Mutational Signature Options](#mutational-signature-options).
 
-For structural variants, the CHM13 panel of normals is a merged panel combining the 1000 Genomes CHM13 panel shipped with SEVERUS and the ASAP cohort, with median confidence intervals per breakpoint. The pipeline exposes it as `--pon_file` and hands it to SEVERUS via that tool's own `--PON` flag; it is downloaded automatically with `--genome CHM13`. GRCh38 continues to use the 1000 Genomes panel shipped with SEVERUS.
+For structural variants, the CHM13 panel of normals is a merged panel combining the 1000 Genomes CHM13 panel shipped with SEVERUS and the ASAP cohort, with median confidence intervals per breakpoint. The pipeline exposes it as `--pon_file` and hands it to SEVERUS via that tool's own `--PON` flag for tumour-only samples. For matched tumour/normal samples SEVERUS is run without `--PON` (combined with `--control-bam`, its PON check would override the matched normal), and the PON is applied afterwards by `SEVERUS_PON_FILTER`, which reproduces SEVERUS' own breakpoint matching and flags matching somatic SVs with `FILTER=PON`; disable this with `--severus_matched_pon false`. The panel is downloaded automatically with `--genome CHM13`. GRCh38 continues to use the 1000 Genomes panel shipped with SEVERUS.
 
 For tumour-only small variants, ClairS-TO separates germline from somatic calls with a panel of normals and with its Verdict module, which tags each call as germline, somatic or subclonal somatic from tumour purity and allele-specific copy number. `--genome CHM13` supplies five CHM13 PON VCFs (gnomAD, dbSNP, 1000 Genomes, CoLoRSdb and ASAP), which **replace** the GRCh38 databases inside the container. Unless `--skip_ascat` is set, purity and copy number come from the pipeline's own ASCAT run (`CLAIRSTO_VERDICT_TAG`); only with `--skip_ascat` does ClairS-TO estimate them itself, from assembly-specific loci, allele and GC content files. A GRCh38 resource set on a CHM13 run leaves germline variants untagged.
 
@@ -170,11 +170,10 @@ If the loci cannot belong to the reference, ClairS-TO disables Verdict with a wa
 
 ### Pipeline options
 
-| Parameter        | Description                                                                                                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-input`         | Full file path to input samplesheet, must be in `.csv` format and conform to specifications noted above                                                                      |
-| `--genome`       | Specified genome assembly, support is given for `GRCh38` and `CHM13`                                                                                                         |
-| `--normal_fiber` | A boolean which skips fiber-seq processing on normal files (on those which have fiber-seq for the tumor). Default = `true` (_does not skip fiber-seq processing for normal_) |
+| Parameter  | Description                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `-input`   | Full file path to input samplesheet, must be in `.csv` format and conform to specifications noted above |
+| `--genome` | Specified genome assembly, support is given for `GRCh38` and `CHM13`                                    |
 
 #### Skipping options:
 
@@ -197,6 +196,7 @@ If the loci cannot belong to the reference, ClairS-TO disables Verdict with a wa
 | `--skip_whatshapstats` | A boolean to skip WhatsHap phasing statistics. Default = `false`                                                                                                                                                                                                        |
 | `--skip_signatures`    | A boolean to skip mutational signature analysis (SigProfilerMatrixGenerator + SigProfilerAssignment). Default = `false`                                                                                                                                                 |
 | `--skip_report`        | A boolean to skip the final per-sample HTML report. Default = `false`                                                                                                                                                                                                   |
+| `--skip_ch_variants`   | A boolean to skip extracting clonal haematopoiesis (CH) variants for tumour-only samples (see [Clonal haematopoiesis variants](#clonal-haematopoiesis-variants-tumour-only)). Default = `false`                                                                         |
 
 #### Modkit options:
 
@@ -215,14 +215,15 @@ The pileup runs a patched modkit 0.6.4 image (`ghcr.io/ljwharbers/modkit`, `linu
 
 #### VEP options:
 
-| Parameter              | Description                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--vep_cache`          | Full path to a vep cache. If left blank, this will default to pulling from this [Annotation Cache Storage](https://annotation-cache.github.io/). |
-| `--vep_cache_version`  | Integer specifying version of vep cache. Default = `113`                                                                                         |
-| `--vep_args`           | A string specifying arguments to vep. Default = `"--everything --filter_common --per_gene --total_length --offline --format vcf --vcf"`          |
-| `--vep_custom`         | A full path to a vcf file containing custom variants for annotation. Must be bgzipped and have `.vcf.gz` format. Default = `null`                |
-| `--vep_custom_tbi`     | A full path to a index file for cutom vcf for vep. Default = `null`                                                                              |
-| `--download_vep_cache` | A boolean to automatically download the VEP cache if not found locally. Default = `false`                                                        |
+| Parameter              | Description                                                                                                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--vep_cache`          | Full path to a vep cache. If left blank, this will default to pulling from this [Annotation Cache Storage](https://annotation-cache.github.io/).                                  |
+| `--vep_cache_version`  | Integer specifying version of vep cache. Default = `113`                                                                                                                          |
+| `--vep_args`           | A string specifying arguments to vep. Default = `"--everything --filter_common --per_gene --total_length --offline --format vcf --vcf"`                                           |
+| `--vep_custom`         | A full path to a vcf file containing custom variants for annotation. Must be bgzipped and have `.vcf.gz` format. Default = `null`                                                 |
+| `--vep_custom_tbi`     | A full path to a index file for cutom vcf for vep. Default = `null`                                                                                                               |
+| `--download_vep_cache` | A boolean to automatically download the VEP cache if not found locally. Default = `false`                                                                                         |
+| `--ch_gene_list`       | A full path to a text file of gene symbols (one per line) used to extract clonal haematopoiesis variants for tumour-only samples. Default = `"${projectDir}/assets/ch_genes.txt"` |
 
 #### VEP plugin options:
 
@@ -275,7 +276,7 @@ opt-in. See [VEP plugins](#vep-plugins) for sizes, licence terms and per-assembl
 | `--ascat_loci_files`          | A full path to a zipped folder containing loci files for [ASCAT](https://github.com/VanLoo-lab/ascat/tree/master/ReferenceFiles/WGS). Must be zipped and have `.zip` format. Default = `null`                               |
 | `--ascat_gc_file`             | A full path to a GC correction file for [ASCAT](https://github.com/VanLoo-lab/ascat/tree/master/ReferenceFiles/WGS). Optionally can be zipped and have either `.txt` or `.txt.zip` format. Default = `null`                 |
 | `--ascat_rt_file`             | A full path to a replication timing correction file for [ASCAT](https://github.com/VanLoo-lab/ascat/tree/master/ReferenceFiles/WGS). Optionally can be zipped and have either `.txt` or `.txt.zip` format. Default = `null` |
-| `--ascat_pdf_plots`           | string to enable output pltos in pdf format. Default = `false`                                                                                                                                                              |
+| `--ascat_pdf_plots`           | A boolean to additionally write every ASCAT plot as PDF. The PNGs are always written, as the report uses them. Default = `true`                                                                                             |
 
 #### Fibertools Options
 
@@ -285,9 +286,10 @@ opt-in. See [VEP plugins](#vep-plugins) for sizes, licence terms and per-assembl
 
 #### SEVERUS Options
 
-| Parameter              | Description                                                                          |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| `--severus_minsupport` | Minimum number of supporting reads required for SEVERUS to call an SV. Default = `3` |
+| Parameter               | Description                                                                                                                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--severus_minsupport`  | Minimum number of supporting reads required for SEVERUS to call an SV. Default = `3`                                                                                             |
+| `--severus_matched_pon` | A boolean to also apply the panel of normals (`--pon_file`) to matched tumour/normal samples, as a post-filter on SEVERUS' normal-based somatic SVs (`SEVERUS_PON_FILTER`). Default = `true` |
 
 #### SAVANA Options
 
@@ -470,6 +472,44 @@ lost: they remain in `variants/phased/germline_smallvariants.vcf.gz`, in
 | `--clairsto_pon_vcfs`    | Full path to one or more Panel of Normals VCF files for ClairS-TO small variant filtering. Default = `null`, meaning the set for `--genome` is used: four VCFs on GRCh38, five on CHM13. Supplying VCFs replaces that set entirely rather than adding to it |
 | `--clairsto_pon_flags`   | Population allele matching flags for ClairS-TO PON VCFs (one per VCF, comma-separated). Default = `null`, meaning the flags that go with the `--genome` set. There must be exactly one flag per VCF, or the run stops at startup                            |
 | `--deepsomatic_pon_vcfs` | Full path to one or more bgzipped, tabix-indexed PON VCF files (for example, `.vcf.gz`) passed to DeepSomatic `--population_vcfs`. If not set, uses container-bundled defaults in tumor-only mode or no PON in paired mode. Default = `null`                |
+| `--asap_vcf`             | Full path to the bgzipped ASAP panel-of-normals VCF (`.vcf.gz`) used to flag and remove matched-sample somatic calls. Default = `null`, meaning the `asap` VCF of the `--genome` (CHM13)                                                                    |
+| `--matched_asap_filter`  | A boolean to flag (`FILTER=ASAP_PON`) and remove ClairS/DeepSomatic matched-sample somatic small variants found in the ASAP PON. Default = `true`                                                                                                           |
+| `--matched_asap_min_af`  | Only flag matched-sample somatic calls whose ASAP PON record has `INFO/AF` greater than this value. Default = `null`, meaning every PON match is flagged                                                                                                    |
+
+#### ASAP panel of normals
+
+The ASAP cohort VCF (`--asap_vcf`, by default the `asap` VCF that `--genome CHM13` provides) is
+used differently depending on whether a sample has a matched normal:
+
+- **Tumour-only samples**: on CHM13, ASAP is one of the ClairS-TO panel-of-normals VCFs (see
+  `--clairsto_pon_vcfs`), so ClairS-TO already treats calls found in it as germline.
+  `--matched_asap_filter` has no effect on these samples.
+- **Matched tumour/normal samples**: ClairS and DeepSomatic separate somatic from germline calls
+  with the matched normal and use no ASAP panel. With `--matched_asap_filter` (the default), each
+  somatic small variant whose allele is in the ASAP VCF is flagged `FILTER=ASAP_PON`, and the
+  flagged calls are removed from the somatic set used for phasing, VEP and the report.
+  `--matched_asap_min_af` restricts this to panel records with `INFO/AF` above the given value.
+  All calls, flagged or not, stay available in `<sample>/variants/asap/` together with a count of
+  how many were flagged; see [`asap` output](output.md#asap).
+
+Without an ASAP VCF (for example on GRCh38 when `--asap_vcf` is not given) there is nothing to
+match against.
+
+#### Clonal haematopoiesis variants (tumour-only)
+
+A tumour-only sample has no matched normal to tell clonal haematopoiesis (CH) mutations from
+tumour mutations or germline variants: CH mutations carried by blood cells in the sample can look
+like low-VAF somatic calls, or be called germline. For these samples the pipeline therefore
+collects every VEP-annotated small variant, from both the somatic and the germline call set, that
+falls in a gene of `--ch_gene_list` (one gene symbol per line; by default the list in
+`assets/ch_genes.txt`). The result goes to `<sample>/vep/ch/`, with each record's origin in
+`INFO/CH_ORIGIN` (`somatic` or `germline`); see [CH variants](output.md#ch-variants). Skip it
+with `--skip_ch_variants`.
+
+The input is the VEP output, so it inherits VEP's filtering: the default `--vep_args` include
+`--filter_common`, which drops variants with a frequency of 1% or more in the population
+databases. Common germline variants in CH genes are therefore not listed. Remove
+`--filter_common` from `--vep_args` to keep them (this affects all VEP output).
 
 #### Advanced Options
 
@@ -486,7 +526,7 @@ The following parameters are automatically populated from the `--genome` iGenome
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--fasta`                                                                          | Full path to the reference FASTA file. Auto-populated from `--genome`. Override for custom genomes.                                                                                                                                                 |
 | `--bed_file`                                                                       | BED file of callable/target regions passed to SEVERUS for SV calling. Auto-populated from `--genome`.                                                                                                                                               |
-| `--pon_file`                                                                       | Panel of Normals breakpoint table (bgzipped CSV) for SEVERUS somatic SV filtering in tumor-only mode. Auto-populated from `--genome`.                                                                                                               |
+| `--pon_file`                                                                       | Panel of Normals breakpoint table (bgzipped CSV) for SEVERUS somatic SV filtering. Passed to SEVERUS for tumour-only samples, and applied to matched tumour/normal samples by `SEVERUS_PON_FILTER` while `--severus_matched_pon` is on (the default). Auto-populated from `--genome`.       |
 | `--centromere_bed`                                                                 | BED file of centromere coordinates passed to WAKHAN. Auto-populated from `--genome`.                                                                                                                                                                |
 | `--genome_name`                                                                    | Assembly name string passed to ASCAT for genome-specific reference file selection. Auto-populated from `--genome`.                                                                                                                                  |
 | `--vep_genome`                                                                     | VEP genome identifier (e.g. `GRCh38`, `T2T-CHM13v2.0`). Auto-populated from `--genome`. Override for CHM13 or custom assemblies.                                                                                                                    |

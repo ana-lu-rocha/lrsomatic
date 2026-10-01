@@ -11,6 +11,9 @@
                 "BCFTOOLS_VIEW": {
                     "bcftools": 1.22
                 },
+                "CH_VARIANTS": {
+                    "bcftools": 1.2
+                },
                 "CLAIR3": {
                     "clair3": "1.2.0"
                 },
@@ -90,6 +93,10 @@
                 },
                 "SEVERUS": {
                     "severus": 1.6
+                },
+                "SEVERUS_PON_FILTER": {
+                    "python": "3.13.5",
+                    "tabix": "1.22.1"
                 },
                 "SOMATIC_VEP": {
                     "ensemblvep": 115.2,
@@ -325,6 +332,12 @@
                 "sample1/variants/severus/all_SVs/breakpoint_clusters_list.tsv",
                 "sample1/variants/severus/all_SVs/severus_all.vcf.gz",
                 "sample1/variants/severus/breakpoints_double.csv",
+                "sample1/variants/severus/pon_filter",
+                "sample1/variants/severus/pon_filter/sample1_severus_somatic.pon_flagged.vcf.gz",
+                "sample1/variants/severus/pon_filter/sample1_severus_somatic.pon_flagged.vcf.gz.tbi",
+                "sample1/variants/severus/pon_filter/sample1_severus_somatic.pon_pass.vcf.gz",
+                "sample1/variants/severus/pon_filter/sample1_severus_somatic.pon_pass.vcf.gz.tbi",
+                "sample1/variants/severus/pon_filter/sample1_severus_somatic.pon_stats.tsv",
                 "sample1/variants/severus/read_ids.csv",
                 "sample1/variants/severus/read_qual.txt",
                 "sample1/variants/severus/severus.log",
@@ -452,6 +465,12 @@
                 "sample2/variants/severus/all_SVs/breakpoint_clusters_list.tsv",
                 "sample2/variants/severus/all_SVs/severus_all.vcf.gz",
                 "sample2/variants/severus/breakpoints_double.csv",
+                "sample2/variants/severus/pon_filter",
+                "sample2/variants/severus/pon_filter/sample2_severus_somatic.pon_flagged.vcf.gz",
+                "sample2/variants/severus/pon_filter/sample2_severus_somatic.pon_flagged.vcf.gz.tbi",
+                "sample2/variants/severus/pon_filter/sample2_severus_somatic.pon_pass.vcf.gz",
+                "sample2/variants/severus/pon_filter/sample2_severus_somatic.pon_pass.vcf.gz.tbi",
+                "sample2/variants/severus/pon_filter/sample2_severus_somatic.pon_stats.tsv",
                 "sample2/variants/severus/read_ids.csv",
                 "sample2/variants/severus/read_qual.txt",
                 "sample2/variants/severus/severus.log",
@@ -552,6 +571,10 @@
                 "sample3/vep/SVs/sample3_SV_VEP.vcf.gz",
                 "sample3/vep/SVs/sample3_SV_VEP.vcf.gz.tbi",
                 "sample3/vep/SVs/sample3_SV_VEP.vcf.gz_summary.html",
+                "sample3/vep/ch",
+                "sample3/vep/ch/sample3_CH_variants.tsv",
+                "sample3/vep/ch/sample3_CH_variants.vcf.gz",
+                "sample3/vep/ch/sample3_CH_variants.vcf.gz.tbi",
                 "sample3/vep/germline",
                 "sample3/vep/germline/sample3_GERMLINE_VEP.vcf.gz",
                 "sample3/vep/germline/sample3_GERMLINE_VEP.vcf.gz.tbi",
@@ -578,6 +601,7 @@
                 "breakpoint_clusters.tsv:md5,d36a70de292ee130ef30da4a58bced18",
                 "breakpoint_clusters_list.tsv:md5,0c0ce62e329f8de492487e8414c30a50",
                 "breakpoints_double.csv:md5,47cb0e0bbe71abdbf4f40217dfda43f9",
+                "sample1_severus_somatic.pon_stats.tsv:md5,5758600578f43f36910e7dc71fe86afb",
                 "read_qual.txt:md5,78247dfa2ea336eac0e128eba5e9eef4",
                 "breakpoint_clusters.tsv:md5,d36a70de292ee130ef30da4a58bced18",
                 "breakpoint_clusters_list.tsv:md5,0c0ce62e329f8de492487e8414c30a50",
@@ -597,6 +621,7 @@
                 "breakpoint_clusters.tsv:md5,d36a70de292ee130ef30da4a58bced18",
                 "breakpoint_clusters_list.tsv:md5,0c0ce62e329f8de492487e8414c30a50",
                 "breakpoints_double.csv:md5,48baac86492026a4a7947bc708c47e6e",
+                "sample2_severus_somatic.pon_stats.tsv:md5,c94bdb72a7402f37613a9e8a5f104833",
                 "read_qual.txt:md5,8b92ff7dc4536188be159b95525511cd",
                 "breakpoint_clusters.tsv:md5,d36a70de292ee130ef30da4a58bced18",
                 "breakpoint_clusters_list.tsv:md5,0c0ce62e329f8de492487e8414c30a50",
@@ -618,8 +643,8 @@
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "26.04.1"
+            "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-22T18:06:32.118064724"
+        "timestamp": "2026-10-01T16:29:09.533802452"
     }
 }

@@ -39,6 +39,7 @@ The pipeline produces per-sample output directories. Two modes exist depending o
 │    │   ├── phased
 │    │   └── severus
 │    ├── vep
+│    │   ├── ch
 │    │   ├── somatic
 │    │   └── SVs
 │    ├── wakhan
@@ -78,6 +79,7 @@ The pipeline produces per-sample output directories. Two modes exist depending o
 │    │   ├── assignment
 │    │   └── matrices
 │    ├── variants
+│    │   ├── asap
 │    │   ├── clair3
 │    │   ├── clairs
 │    │   ├── deepsomatic
@@ -119,7 +121,11 @@ The pipeline produces per-sample output directories. Two modes exist depending o
 │   ├── sample.tumour.ASPCF.png
 │   ├── sample.tumour.rawprofile.png
 │   ├── sample.tumour.sunrise.png
+│   ├── sample.*.pdf                 # with --ascat_pdf_plots (default)
 ```
+
+With `--ascat_pdf_plots` (the default) every PNG plot below is also written as a vector PDF with the
+same name and a `.pdf` extension. The PNGs are always written, as the report uses them.
 
 | File                                                  | Description                                                                                                      |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -142,6 +148,7 @@ The pipeline produces per-sample output directories. Two modes exist depending o
 | `sample.tumour.ASPCF.png`                             | a png file with the corrected LogR and BAF plots of the tumor sample                                             |
 | `sample.tumour.rawprofile.png`                        | a png file with the raw overall copy number profile with ploidy, purity, and goodness of fit metrics             |
 | `sample.tumour.sunrise.png`                           | a png file with a purity and ploidy fit                                                                          |
+| `sample.*.pdf`                                        | PDF copies of all the png plots above (only with `--ascat_pdf_plots`, on by default)                             |
 
 </details>
 
@@ -340,6 +347,12 @@ The germline/somatic split comes from a panel of normals and from ClairS-TO's Ve
 │   ├── read_ids.csv
 │   ├── read_qual.txt
 │   ├── severus.log
+│   ├── pon_filter                  (matched tumour/normal samples only)
+│   │   ├── <sample>_severus_somatic.pon_flagged.vcf.gz
+│   │   ├── <sample>_severus_somatic.pon_flagged.vcf.gz.tbi
+│   │   ├── <sample>_severus_somatic.pon_pass.vcf.gz
+│   │   ├── <sample>_severus_somatic.pon_pass.vcf.gz.tbi
+│   │   ├── <sample>_severus_somatic.pon_stats.tsv
 ```
 
 | File                                      | Description                                                                       |
@@ -357,6 +370,11 @@ The germline/somatic split comes from a panel of normals and from ClairS-TO's Ve
 | `read_ids.csv`                            | a csv file containing read ids associated with each identified SV                 |
 | `read_qual.txt`                           | file containing quality statistics about identified segements                     |
 | `severus.log`                             | log file                                                                          |
+| `pon_filter/<sample>_severus_somatic.pon_flagged.vcf.gz` | Matched samples: all Severus somatic SVs; those matching the SV panel of normals (`--pon_file`, 1000G + ASAP on CHM13) get `FILTER=PON` and `INFO/PON_MATCH` naming the panel entry |
+| `pon_filter/<sample>_severus_somatic.pon_pass.vcf.gz`    | Matched samples: somatic SVs with panel matches removed (used by the report)       |
+| `pon_filter/<sample>_severus_somatic.pon_stats.tsv`      | Matched samples: total and PON-flagged SV record counts (a BND pair counts as 2)   |
+
+For tumour-only samples SEVERUS applies the panel of normals itself (`--PON`), so `somatic_SVs/` is already PON-filtered. For matched samples SEVERUS classifies SVs with the normal only, and `pon_filter/` adds the panel on top using SEVERUS' own breakpoint-matching rules. The per-breakpoint confidence interval is not in the VCF and is taken as 0, so the post-filter is slightly more conservative than SEVERUS' built-in PON (it flags a subset).
 
 #### `savana`
 
@@ -441,6 +459,31 @@ DeepSomatic somatic small variant calls. Present in all samples.
 | `sample.g.vcf.gz`     | DeepSomatic gVCF file with calls at all positions (only with `--generate_gvcf`) |
 | `sample.g.vcf.gz.tbi` | Index for DeepSomatic gVCF (only with `--generate_gvcf`)                        |
 
+#### `asap`
+
+ASAP panel-of-normals filtering of the matched-sample somatic small variants. Present only for
+matched tumour/normal samples, with `--matched_asap_filter` (the default) and an ASAP VCF
+(`--asap_vcf`, or the `asap` VCF of `--genome CHM13`). See
+[ASAP panel of normals](usage.md#asap-panel-of-normals).
+
+```
+├── asap
+│   ├── sample_somatic.asap_flagged.vcf.gz
+│   ├── sample_somatic.asap_flagged.vcf.gz.tbi
+│   ├── sample_somatic.asap_stats.tsv
+```
+
+| File                                     | Description                                                                                                                                                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample_somatic.asap_flagged.vcf.gz`     | All matched somatic calls (ClairS and/or DeepSomatic), normalised and split to one ALT per record; calls whose allele is in the ASAP PON have `ASAP_PON` added to `FILTER` and `INFO/ASAP_PON_MATCH` set |
+| `sample_somatic.asap_flagged.vcf.gz.tbi` | Index for the flagged VCF                                                                                                                                                                                |
+| `sample_somatic.asap_stats.tsv`          | One row with the columns `sample`, `total` (somatic calls) and `asap_flagged` (calls flagged `ASAP_PON`)                                                                                                 |
+
+Only the calls that are not flagged go on to phasing, so for these samples
+`phased/somatic_smallvariants.vcf.gz`, `vep/somatic/` and the report exclude ASAP matches. With
+`--matched_asap_min_af`, only matches whose panel `INFO/AF` is above that value are flagged, and the
+panel AF is carried over as `INFO/ASAP_AF`.
+
 #### `phased`
 
 Phased variant calls produced by Longphase. Present in all samples.
@@ -460,6 +503,9 @@ Phased variant calls produced by Longphase. Present in all samples.
 | `somatic_smallvariants.vcf.gz`      | Longphase-phased somatic SNV/indel VCF with haplotype (PS) tags  |
 | `somatic_smallvariants.vcf.gz.tbi`  | Index for the phased somatic VCF                                 |
 
+For matched tumour/normal samples, `somatic_smallvariants.vcf.gz` excludes the calls flagged by
+the [ASAP PON filter](#asap) unless `--matched_asap_filter false` is given.
+
 </details>
 
 ### `vep`
@@ -469,6 +515,10 @@ Phased variant calls produced by Longphase. Present in all samples.
 
 ```
 ├── vep
+│   ├── ch                                  # tumour-only samples
+│   │   ├── sample_CH_variants.vcf.gz
+│   │   ├── sample_CH_variants.vcf.gz.tbi
+│   │   ├── sample_CH_variants.tsv
 │   ├── germline
 │   │   ├── sample_GERMLINE_VEP.vcf.gz
 │   │   ├── sample_GERMLINE_VEP_summary.html
@@ -483,19 +533,42 @@ Phased variant calls produced by Longphase. Present in all samples.
 │   │   ├── sample_SV_VEP.vcf.gz.tbi
 ```
 
-| File                                        | Description                                                             |
-| ------------------------------------------- | ----------------------------------------------------------------------- |
-| `germline/sample_GERMLINE_VEP.vcf.gz`       | Annotated germline indel and SNV vcf file                               |
-| `germline/sample_GERMLINE_VEP_summary.html` | Visual summary of germline indel and SNV annotations in html format     |
-| `germline/sample_GERMLINE_VEP.vcf.gz.tbi`   | Annotated germline indel and SNV vcf index file                         |
-| `somatic/sample_SOMATIC_VEP.vcf.gz`         | Annotated somatic indel and SNV vcf file                                |
-| `somatic/sample_SOMATIC_VEP_summary.html`   | Visual summary of somatic indel and SNV annotations in html format      |
-| `somatic/sample_SOMATIC_VEP.vcf.gz.tbi`     | Annotated somatic indel and SNV vcf index file                          |
-| `SVs/sample_SV_VEP.vcf.gz`                  | Annotated somatic structural variant vcf file                           |
-| `SVs/sample_SV_VEP_summary.html`            | Visual summary of somatic structural variant annotations in html format |
-| `SVs/sample_SV_VEP.vcf.gz.tbi`              | Annotated somatic structural variant vcf index file                     |
+| File                                        | Description                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `germline/sample_GERMLINE_VEP.vcf.gz`       | Annotated germline indel and SNV vcf file                                               |
+| `germline/sample_GERMLINE_VEP_summary.html` | Visual summary of germline indel and SNV annotations in html format                     |
+| `germline/sample_GERMLINE_VEP.vcf.gz.tbi`   | Annotated germline indel and SNV vcf index file                                         |
+| `somatic/sample_SOMATIC_VEP.vcf.gz`         | Annotated somatic indel and SNV vcf file                                                |
+| `somatic/sample_SOMATIC_VEP_summary.html`   | Visual summary of somatic indel and SNV annotations in html format                      |
+| `somatic/sample_SOMATIC_VEP.vcf.gz.tbi`     | Annotated somatic indel and SNV vcf index file                                          |
+| `SVs/sample_SV_VEP.vcf.gz`                  | Annotated somatic structural variant vcf file                                           |
+| `SVs/sample_SV_VEP_summary.html`            | Visual summary of somatic structural variant annotations in html format                 |
+| `SVs/sample_SV_VEP.vcf.gz.tbi`              | Annotated somatic structural variant vcf index file                                     |
+| `ch/sample_CH_variants.vcf.gz`              | Clonal haematopoiesis variants of a tumour-only sample, see [CH variants](#ch-variants) |
+| `ch/sample_CH_variants.vcf.gz.tbi`          | Index for the CH variant VCF                                                            |
+| `ch/sample_CH_variants.tsv`                 | One row per CH-gene VEP annotation of each CH variant                                   |
+
+For matched tumour/normal samples, `somatic/` excludes the calls flagged by the
+[ASAP PON filter](#asap) unless `--matched_asap_filter false` is given.
 
 </details>
+
+#### CH variants
+
+For tumour-only samples, `vep/ch/` collects the VEP-annotated somatic and germline small variants
+that fall in a gene of `--ch_gene_list` (by default `assets/ch_genes.txt`); skip it with
+`--skip_ch_variants`. See
+[Clonal haematopoiesis variants](usage.md#clonal-haematopoiesis-variants-tumour-only).
+
+- `sample_CH_variants.vcf.gz` holds the matching records of both call sets, with their VEP `CSQ`
+  annotation, the sample column renamed to the sample ID, and two INFO fields: `CH_GENE` (the CH
+  gene(s) the record is annotated to) and `CH_ORIGIN` (`somatic` or `germline`, the call set it
+  came from). A site present in both call sets appears twice, once per origin.
+- `sample_CH_variants.tsv` is a tab-separated table with the columns `CHROM`, `POS`, `REF`, `ALT`,
+  `CH_ORIGIN`, `SYMBOL`, `Consequence` and `IMPACT`, one row per VEP annotation in a CH gene.
+
+The default `--vep_args` include `--filter_common`, which drops variants with a population
+frequency of 1% or more from VEP's output, so common germline variants do not appear here.
 
 #### Plugin fields in the `CSQ` annotation
 

@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "ch_variants"
+description: |
+  Report small variants in clonal hematopoiesis (CH) genes from VEP-annotated somatic and
+  germline VCFs. Records whose VEP CSQ SYMBOL is in the gene list are kept, annotated with
+  INFO/CH_GENE and INFO/CH_ORIGIN (somatic or germline), and merged into one sorted VCF;
+  a per-CSQ-entry TSV summary is written alongside.
+keywords:
+  - vcf
+  - vep
+  - clonal hematopoiesis
+  - somatic
+  - germline
+  - gene-list
+tools:
+  - "bcftools":
+      description: "Tools for variant calling and manipulating VCFs and BCFs"
+      homepage: "http://samtools.github.io/bcftools/bcftools.html"
+      documentation: "http://www.htslib.org/doc/bcftools.html"
+      tool_dev_url: "https://github.com/samtools/bcftools"
+      doi: "10.1093/gigascience/giab008"
+      licence: ["MIT"]
+      identifier: biotools:bcftools
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - som_vcf:
+        type: file
+        description: VEP-annotated somatic VCF (staged under somatic/)
+        pattern: "*.vcf.gz"
+    - som_tbi:
+        type: file
+        description: Tabix index of the somatic VCF
+        pattern: "*.vcf.gz.tbi"
+    - germ_vcf:
+        type: file
+        description: VEP-annotated germline VCF (staged under germline/)
+        pattern: "*.vcf.gz"
+    - germ_tbi:
+        type: file
+        description: Tabix index of the germline VCF
+        pattern: "*.vcf.gz.tbi"
+  - gene_list:
+      type: file
+      description: |
+        CH gene symbols, one per line. Blank lines, '#' comments, surrounding whitespace and
+        CR line endings are ignored.
+      pattern: "*.txt"
+
+output:
+  vcf:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - ${prefix}.vcf.gz:
+          type: file
+          description: |
+            Sorted VCF of records in CH genes from both arms, with INFO/CH_GENE and
+            INFO/CH_ORIGIN; the sample column is renamed to meta.id
+          pattern: "*.vcf.gz"
+      - ${prefix}.vcf.gz.tbi:
+          type: file
+          description: Tabix index of the CH VCF
+          pattern: "*.vcf.gz.tbi"
+  tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - ${prefix}.tsv:
+          type: file
+          description: |
+            One row per CSQ entry in a CH gene, with columns CHROM, POS, REF, ALT, CH_ORIGIN,
+            SYMBOL, Consequence and IMPACT
+          pattern: "*.tsv"
+  versions_bcftools:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bcftools:
+          type: string
+          description: The tool name
+      - "bcftools --version |& sed '1!d ; s/bcftools //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bcftools:
+          type: string
+          description: The tool name
+      - "bcftools --version |& sed '1!d ; s/bcftools //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+authors:
+  - "@ana-lu-rocha"
+maintainers:
+  - "@ana-lu-rocha"

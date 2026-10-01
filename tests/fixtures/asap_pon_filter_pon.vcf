@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=MT192765.1,length=29829>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency in the panel">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+MT192765.1	100	.	A	G	.	PASS	AF=0.05
+MT192765.1	200	.	C	A	.	PASS	AF=0.2
+MT192765.1	300	.	C	G,T	.	PASS	AF=0.1,0.3
+MT192765.1	500	.	A	C	.	PASS	AF=0.001
+MT192765.1	600	.	a	c	.	PASS	AF=0.02

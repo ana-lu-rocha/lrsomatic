@@ -46,6 +46,9 @@ include { MODKIT_PILEUP                     } from '../modules/nf-core/modkit/pi
 include { BCFTOOLS_VIEW as SIGNATURES_BCFTOOLS_VIEW } from '../modules/nf-core/bcftools/view/main'
 include { SIGPROFILER_MATRIXGENERATOR       } from '../modules/local/sigprofiler/matrixgenerator/main'
 include { SIGPROFILER_ASSIGNMENT            } from '../modules/local/sigprofiler/assignment/main'
+include { ASAP_PON_FILTER                   } from '../modules/local/asap_pon_filter/main'
+include { CH_VARIANTS                       } from '../modules/local/ch_variants/main'
+include { SEVERUS_PON_FILTER                } from '../modules/local/severus_pon_filter/main'
 
 //
 // IMPORT SUBWORKFLOWS
@@ -747,9 +750,31 @@ workflow LRSOMATIC {
         .set{ch_germline_vcf}
     // ch_germline_vcf: [meta, vcf, tbi]  -- germline variants for all samples (paired + tumor-only)
 
+    // MODULE: ASAP_PON_FILTER (label: process_low)
+    // Paired T/N somatic calls get FILTER=ASAP_PON where they match the ASAP panel of normals
+    // (tumor-only calls already use ASAP as a ClairS-TO / DeepSomatic PON). The flagged VCF is
+    // published; the PON-cleaned VCF continues to phasing, since TAG_SOMATIC resets FILTER.
+    // Input:  PAIRED_SMALLVAR_SOMATIC.out.somatic_vcf -- [meta, vcf, tbi]
+    //         [[:], asap_vcf, asap_tbi]  -- tbi may be [] (indexed in the task)
+    // Output: .vcf -- [meta, vcf, tbi]  -- ASAP matches removed
+    def asap_vcf = params.asap_vcf ?: getGenomeAttribute('asap')
+    ch_paired_somatic_vcf = PAIRED_SMALLVAR_SOMATIC.out.somatic_vcf
+    if (params.matched_asap_filter && asap_vcf) {
+        def asap_tbi = file("${asap_vcf}.tbi").exists() ? file("${asap_vcf}.tbi") : []
+        ASAP_PON_FILTER (
+            ch_paired_somatic_vcf,
+            channel.value([[:], file(asap_vcf, checkIfExists: true), asap_tbi]),
+            ch_fasta,
+            ch_fai
+        )
+        ch_paired_somatic_vcf = ASAP_PON_FILTER.out.vcf
+    } else if (params.matched_asap_filter) {
+        log.info "No ASAP VCF for --genome ${params.genome}: matched-sample ASAP filtering skipped (set --asap_vcf to enable)."
+    }
+
     // Merge somatic VCFs from tumor-only and paired T/N paths into a single channel
     TUMORONLY_SMALLVAR.out.somatic_vcf
-        .mix(PAIRED_SMALLVAR_SOMATIC.out.somatic_vcf)
+        .mix(ch_paired_somatic_vcf)
         .set{ch_somatic_vcf}
     // ch_somatic_vcf: [meta, vcf, tbi]  -- somatic variants for all samples
 
@@ -885,6 +910,27 @@ workflow LRSOMATIC {
         )
 
         ch_somatic_vep_vcf = SOMATIC_VEP.out.vcf
+
+        //
+        // MODULE: CH_VARIANTS (label: process_single)
+        // Tumor-only samples: small variants in clonal hematopoiesis genes (VEP SYMBOL) from both
+        // VEP arms, tagged with INFO/CH_GENE and INFO/CH_ORIGIN=somatic|germline. Both arms carry
+        // the same type-less meta (PHASING_HAPLOTYPING subMaps both), so they join on meta.
+        // Input:  [meta, som_vcf, som_tbi, germ_vcf, germ_tbi], gene_list
+        // Output: .vcf -- [meta, vcf, tbi]; .tsv -- [meta, tsv]
+        //
+        if (!params.skip_ch_variants) {
+            def ch_som_vep  = SOMATIC_VEP.out.vcf
+                .join(SOMATIC_VEP.out.tbi, failOnMismatch: true, failOnDuplicate: true)
+                .filter { meta, _vcf, _tbi -> !meta.paired_data }
+            def ch_germ_vep = GERMLINE_VEP.out.vcf
+                .join(GERMLINE_VEP.out.tbi, failOnMismatch: true, failOnDuplicate: true)
+                .filter { meta, _vcf, _tbi -> !meta.paired_data }
+            CH_VARIANTS (
+                ch_som_vep.join(ch_germ_vep, failOnDuplicate: true),
+                file(params.ch_gene_list, checkIfExists: true)
+            )
+        }
     }
 
     if (!params.skip_signatures) {
@@ -983,6 +1029,32 @@ workflow LRSOMATIC {
     )
 
     ch_versions = ch_versions.mix(SEVERUS.out.versions)
+
+    //
+    // MODULE: SEVERUS_PON_FILTER (label: process_single)
+    // Matched T/N only: Severus runs without --PON there (with --control-bam its PON check would
+    // override the normal), so the PON is applied afterwards with Severus' own matching criteria.
+    // Input:  [meta, severus_somatic_vcf]; [[:], pon_file, vntr_bed]
+    // Output: .vcf -- [meta, vcf.gz, tbi]  -- PON matches removed
+    //
+    ch_severus_somatic_vcf = SEVERUS.out.somatic_vcf
+    if (params.severus_matched_pon && params.pon_file) {
+        SEVERUS.out.somatic_vcf
+            .branch { meta, _vcf ->
+                paired: meta.paired_data
+                tumor_only: !meta.paired_data
+            }
+            .set { branched_severus_somatic }
+
+        SEVERUS_PON_FILTER (
+            branched_severus_somatic.paired,
+            [[id:'severus_pon'], file(params.pon_file), params.bed_file ? file(params.bed_file) : []]
+        )
+
+        ch_severus_somatic_vcf = branched_severus_somatic.tumor_only
+            .mix(SEVERUS_PON_FILTER.out.vcf.map { meta, vcf, _tbi -> [meta, vcf] })
+    }
+    // ch_severus_somatic_vcf: [meta, vcf]  -- somatic SVs, matched samples PON-filtered
 
     SEVERUS.out.all_vcf
         .map { meta, vcf ->
@@ -1294,7 +1366,7 @@ workflow LRSOMATIC {
             : ch_sv_vep_vcf.map { meta, vcf -> [meta.id, vcf] }
         // report_sv_vep_ch: [id, vcf]
 
-        SEVERUS.out.somatic_vcf
+        ch_severus_somatic_vcf
             .map { meta, vcf -> [meta.id, vcf] }
             .set { report_severus_ch }
 

@@ -1,0 +1,8 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # same package as the container: python3 for bin/severus_pon_filter.py, htslib for bgzip/tabix
+  - bioconda::severus=1.6

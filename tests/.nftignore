@@ -11,6 +11,7 @@ multiqc/multiqc_data/*.txt
 multiqc/multiqc_plots/{pdf,svg,png}/*.{png,svg,pdf}
 pipeline_info/*.{html,json,txt,yml}
 */vep/{SVs,germline,somatic}/*.{vcf.gz,html,vcf.gz.tbi}
+*/vep/ch/*
 */variants/clair3/merge_output.{vcf.gz,vcf.gz.tbi}
 */variants/clairs/*.{vcf.gz,vcf.gz.tbi}
 */variants/clairsto/*.{vcf.gz,vcf.gz.tbi}
@@ -18,6 +19,9 @@ pipeline_info/*.{html,json,txt,yml}
 */variants/severus/severus.log
 */variants/severus/{all_SVs,somatic_SVs}/*.{vcf.gz,vcf.gz.tbi}
 */variants/phased/*.{vcf.gz,vcf.gz.tbi}
+*/variants/asap/*.{vcf.gz,vcf.gz.tbi}
+# R's pdf() device embeds the creation date
+*/ascat/*.pdf
 */qc/{tumor,normal}/cramino_ubam_*/*_cramino.txt
 */qc/{tumor,normal}/cramino_aln/*_cramino.txt
 */qc/{tumor,normal}/nanoplot_ubam_*/*.html
@@ -34,3 +38,4 @@ pipeline_info/*.{html,json,txt,yml}
 # samtools merge gives sample4's colliding @PG IDs a random suffix, so this BAM's md5 differs every run (reads asserted in tests/clair_only.nf.test)
 sample4/bamfiles/sample4_tumor.bam
 sample4/bamfiles/sample4_tumor.bam.bai
+*/variants/severus/pon_filter/*.{vcf.gz,vcf.gz.tbi}

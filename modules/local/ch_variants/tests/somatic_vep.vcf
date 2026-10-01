@@ -1,0 +1,18 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=242193529>
+##contig=<ID=chr4,length=190214555>
+##contig=<ID=chr7,length=159345973>
+##contig=<ID=chr17,length=83257441>
+##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Record originates from the somatic call set">
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence annotations from Ensembl VEP. Format: Allele|Consequence|IMPACT|SYMBOL|Gene|Feature_type|Feature|BIOTYPE|HGVSp|Existing_variation|SIFT|PolyPhen">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=AF,Number=1,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+chr1	114716126	.	C	T	30.0	PASS	SOMATIC;CSQ=T|missense_variant|MODERATE|NRAS|ENSG00000213281|Transcript|ENST00000369535|protein_coding|ENSP00000358548.4:p.Gly12Asp|rs121913237||	GT:DP:AF	0/1:40:0.35
+chr2	25234373	.	C	T	30.0	PASS	SOMATIC;CSQ=T|missense_variant|MODERATE|DNMT3A|ENSG00000119772|Transcript|ENST00000321117|protein_coding|ENSP00000324375.5:p.Arg882His|rs147001633||,T|upstream_gene_variant|MODIFIER|ASXL2|ENSG00000143970|Transcript|ENST00000435504|protein_coding||||,T|intron_variant|MODIFIER|FAKEGENE1|ENSG00000000001|Transcript|ENST00000000001|lncRNA||||	GT:DP:AF	0/1:52:0.12
+chr4	105236000	.	G	A	30.0	PASS	SOMATIC;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||	GT:DP:AF	0/1:47:0.08
+chr7	117559590	.	A	G	30.0	PASS	SOMATIC;CSQ=G|missense_variant|MODERATE|CFTR|ENSG00000001626|Transcript|ENST00000003084|protein_coding|ENSP00000003084.6:p.Ile1Val|||	GT:DP:AF	0/1:33:0.40
+chr17	7675200	.	G	T	30.0	PASS	SOMATIC	GT:DP:AF	0/1:30:0.20

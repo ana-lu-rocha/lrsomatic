@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##contig=<ID=MT192765.1,length=29829>
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowQual,Description="Low quality">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	TUMOR
+MT192765.1	100	.	A	G	30	PASS	DP=20	GT	0/1
+MT192765.1	200	.	C	T	30	PASS	DP=20	GT	0/1
+MT192765.1	300	.	C	A,G	30	PASS	DP=20	GT	1/2
+MT192765.1	400	.	G	T	30	LowQual	DP=20	GT	0/1
+MT192765.1	500	.	A	C	30	PASS	DP=20	GT	0/1
+MT192765.1	600	.	A	C	30	PASS	DP=20	GT	0/1

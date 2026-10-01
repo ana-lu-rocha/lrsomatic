@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "asap_pon_filter"
+description: |
+  Flags small variants that are present in the ASAP panel of normals. Calls are split into
+  biallelic records and left-aligned, matched allele by allele against the panel (a different ALT
+  at the same position is not a match), and matching records get FILTER ASAP_PON. When
+  `task.ext.min_af` is set the panel AF is copied to INFO/ASAP_AF and only matches with
+  ASAP_AF > min_af are flagged.
+keywords:
+  - panel of normals
+  - filter
+  - vcf
+  - bcftools
+tools:
+  - "bcftools":
+      description: "Utilities for variant calling and manipulating VCFs and BCFs."
+      homepage: "http://samtools.github.io/bcftools/bcftools.html"
+      documentation: "http://www.htslib.org/doc/bcftools.html"
+      tool_dev_url: "https://github.com/samtools/bcftools"
+      doi: "10.1093/bioinformatics/btp352"
+      licence: ["MIT"]
+      identifier: biotools:bcftools
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - vcf:
+        type: file
+        description: Variant calls to filter
+        pattern: "*.{vcf,vcf.gz}"
+    - tbi:
+        type: file
+        description: Index of the variant calls
+        pattern: "*.{tbi,csi}"
+  - - meta2:
+        type: map
+        description: Groovy Map describing the panel
+    - asap_vcf:
+        type: file
+        description: ASAP panel-of-normals VCF (bgzipped), with INFO/AF when min_af is used
+        pattern: "*.vcf.gz"
+    - asap_tbi:
+        type: file
+        description: Index of the panel; optional (`[]`), built in the task when missing
+        pattern: "*.{tbi,csi}"
+  - - meta3:
+        type: map
+        description: Groovy Map describing the reference
+    - fasta:
+        type: file
+        description: Reference FASTA used to left-align the calls
+        pattern: "*.{fa,fasta,fna}"
+  - - meta4:
+        type: map
+        description: Groovy Map describing the reference
+    - fai:
+        type: file
+        description: Index of the reference FASTA
+        pattern: "*.fai"
+output:
+  flagged:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.asap_flagged.vcf.gz":
+          type: file
+          description: All calls, panel matches carrying FILTER ASAP_PON and INFO/ASAP_PON_MATCH
+          pattern: "*.asap_flagged.vcf.gz"
+      - "${prefix}.asap_flagged.vcf.gz.tbi":
+          type: file
+          description: Index of the flagged VCF
+          pattern: "*.asap_flagged.vcf.gz.tbi"
+  vcf:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.asap_pass.vcf.gz":
+          type: file
+          description: Calls without the ASAP_PON filter (other FILTER values are kept)
+          pattern: "*.asap_pass.vcf.gz"
+      - "${prefix}.asap_pass.vcf.gz.tbi":
+          type: file
+          description: Index of the pass VCF
+          pattern: "*.asap_pass.vcf.gz.tbi"
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}.asap_stats.tsv":
+          type: file
+          description: Per-sample counts (sample, total, asap_flagged)
+          pattern: "*.asap_stats.tsv"
+  versions_bcftools:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bcftools:
+          type: string
+          description: The tool name
+      - "bcftools --version |& sed '1!d ; s/bcftools //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bcftools:
+          type: string
+          description: The tool name
+      - "bcftools --version |& sed '1!d ; s/bcftools //'":
+          type: string
+          description: The command used to generate the version of the tool
+
+authors:
+  - "@ana-lu-rocha"
+maintainers:
+  - "@ana-lu-rocha"

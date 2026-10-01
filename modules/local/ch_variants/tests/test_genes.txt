@@ -1,0 +1,11 @@
+# Test CH gene list: deliberately messy to exercise the normalisation
+NRAS
+DNMT3A
+ASXL2
+TET2
+TP53
+JAK2
+
+DNMT3A
+SF3B1
+	TP53

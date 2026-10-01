@@ -1,0 +1,124 @@
+{
+    "test gene list - somatic and germline hits": {
+        "content": [
+            [
+                "chr1\t114716126\t.\tC\tT\t30\tPASS\tSOMATIC;CSQ=T|missense_variant|MODERATE|NRAS|ENSG00000213281|Transcript|ENST00000369535|protein_coding|ENSP00000358548.4:p.Gly12Asp|rs121913237||;CH_GENE=NRAS;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:40:0.35",
+                "chr2\t25234373\t.\tC\tT\t30\tPASS\tSOMATIC;CSQ=T|missense_variant|MODERATE|DNMT3A|ENSG00000119772|Transcript|ENST00000321117|protein_coding|ENSP00000324375.5:p.Arg882His|rs147001633||,T|upstream_gene_variant|MODIFIER|ASXL2|ENSG00000143970|Transcript|ENST00000435504|protein_coding||||,T|intron_variant|MODIFIER|FAKEGENE1|ENSG00000000001|Transcript|ENST00000000001|lncRNA||||;CH_GENE=ASXL2,DNMT3A;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:52:0.12",
+                "chr4\t105236000\t.\tG\tA\t30\tPASS\tSOMATIC;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||;CH_GENE=TET2;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:47:0.08",
+                "chr4\t105236000\t.\tG\tA\t25\tPASS\tGERMLINE;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||;CH_GENE=TET2;CH_ORIGIN=germline\tGT:DP:AF\t0/1:47:0.48",
+                "chr17\t7675088\t.\tC\tA\t25\tPASS\tGERMLINE;CSQ=A|stop_gained|HIGH|TP53|ENSG00000141510|Transcript|ENST00000269305|protein_coding|ENSP00000269305.4:p.Arg213Ter|rs397516436||;CH_GENE=TP53;CH_ORIGIN=germline\tGT:DP:AF\t0/1:55:0.51"
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "paired_data": false
+                    },
+                    "test_CH_variants.tsv:md5,68eba174da3d048972077dbeaeee7203"
+                ]
+            ],
+            {
+                "versions_bcftools": [
+                    [
+                        "CH_VARIANTS",
+                        "bcftools",
+                        "1.20"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:30:50.160731245"
+    },
+    "stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "paired_data": false
+                        },
+                        "test_CH_variants.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_CH_variants.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "paired_data": false
+                        },
+                        "test_CH_variants.tsv:md5,4412f1bf853702bd8113355c5366d3d2"
+                    ]
+                ],
+                "2": [
+                    [
+                        "CH_VARIANTS",
+                        "bcftools",
+                        "1.20"
+                    ]
+                ],
+                "tsv": [
+                    [
+                        {
+                            "id": "test",
+                            "paired_data": false
+                        },
+                        "test_CH_variants.tsv:md5,4412f1bf853702bd8113355c5366d3d2"
+                    ]
+                ],
+                "vcf": [
+                    [
+                        {
+                            "id": "test",
+                            "paired_data": false
+                        },
+                        "test_CH_variants.vcf.gz:md5,68b329da9893e34099c7d8ad5cb9c940",
+                        "test_CH_variants.vcf.gz.tbi:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_bcftools": [
+                    [
+                        "CH_VARIANTS",
+                        "bcftools",
+                        "1.20"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:31:12.383247673"
+    },
+    "pipeline CH gene list": {
+        "content": [
+            [
+                "chr1\t114716126\t.\tC\tT\t30\tPASS\tSOMATIC;CSQ=T|missense_variant|MODERATE|NRAS|ENSG00000213281|Transcript|ENST00000369535|protein_coding|ENSP00000358548.4:p.Gly12Asp|rs121913237||;CH_GENE=NRAS;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:40:0.35",
+                "chr2\t25234373\t.\tC\tT\t30\tPASS\tSOMATIC;CSQ=T|missense_variant|MODERATE|DNMT3A|ENSG00000119772|Transcript|ENST00000321117|protein_coding|ENSP00000324375.5:p.Arg882His|rs147001633||,T|upstream_gene_variant|MODIFIER|ASXL2|ENSG00000143970|Transcript|ENST00000435504|protein_coding||||,T|intron_variant|MODIFIER|FAKEGENE1|ENSG00000000001|Transcript|ENST00000000001|lncRNA||||;CH_GENE=ASXL2,DNMT3A;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:52:0.12",
+                "chr4\t105236000\t.\tG\tA\t30\tPASS\tSOMATIC;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||;CH_GENE=TET2;CH_ORIGIN=somatic\tGT:DP:AF\t0/1:47:0.08",
+                "chr4\t105236000\t.\tG\tA\t25\tPASS\tGERMLINE;CSQ=A|stop_gained|HIGH|TET2|ENSG00000168769|Transcript|ENST00000380013|protein_coding|ENSP00000369351.4:p.Gln1034Ter|||;CH_GENE=TET2;CH_ORIGIN=germline\tGT:DP:AF\t0/1:47:0.48",
+                "chr17\t7675088\t.\tC\tA\t25\tPASS\tGERMLINE;CSQ=A|stop_gained|HIGH|TP53|ENSG00000141510|Transcript|ENST00000269305|protein_coding|ENSP00000269305.4:p.Arg213Ter|rs397516436||;CH_GENE=TP53;CH_ORIGIN=germline\tGT:DP:AF\t0/1:55:0.51"
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "paired_data": false
+                    },
+                    "test_CH_variants.tsv:md5,68eba174da3d048972077dbeaeee7203"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.4"
+        },
+        "timestamp": "2026-10-01T15:30:56.417239307"
+    }
+}

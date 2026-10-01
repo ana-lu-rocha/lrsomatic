@@ -1,0 +1,146 @@
+nextflow_process {
+
+    name "Test Process ASAP_PON_FILTER"
+    script "../main.nf"
+    process "ASAP_PON_FILTER"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_local"
+    tag "asap_pon_filter"
+
+    // Fixture layout (tests/fixtures/asap_pon_filter_*.vcf), all on the sarscov2 test genome:
+    //   pos 100 A>G      -- exact panel match (AF 0.05)                 -> flagged
+    //   pos 200 C>T      -- panel has C>A at the same position          -> not flagged
+    //   pos 300 C>A,G    -- multiallelic call; panel record is C>G,T    -> C>G flagged, C>A kept
+    //   pos 400 G>T      -- absent from the panel, caller FILTER LowQual -> kept, FILTER untouched
+    //   pos 500 A>C      -- panel match with a rare panel AF (0.001)    -> flagged unless min_af
+    //   pos 600 A>C      -- panel match written in lowercase (a>c)      -> flagged
+    // The panel ships without an index, so the process has to build one.
+
+    test("flags panel matches allele by allele") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_query.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_query.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'asap' ],
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_pon.vcf.gz", checkIfExists: true),
+                    []
+                ]
+                input[2] = [ [ id:'genome' ], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta', checkIfExists: true) ]
+                input[3] = [ [ id:'genome' ], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta.fai', checkIfExists: true) ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged_all = path(process.out.flagged[0][1]).linesGzip
+            def flagged     = flagged_all.findAll { !it.startsWith('#') }
+            def header      = flagged_all.findAll { it.startsWith('##') }.join('\n')
+            def pass        = path(process.out.vcf[0][1]).linesGzip.findAll { !it.startsWith('#') }
+            def site        = { List recs -> recs.collect { r -> def f = r.split('\t'); "${f[1]}:${f[3]}>${f[4]}:${f[6]}".toString() } }
+
+            assertAll(
+                { assert header.contains('ID=ASAP_PON_MATCH') },
+                { assert header.contains('##FILTER=<ID=ASAP_PON') },
+                // without a minimum AF no ASAP_AF is carried over
+                { assert !header.contains('ID=ASAP_AF') },
+                // the multiallelic call is split, so 6 input records become 7
+                { assert flagged.size() == 7 },
+                { assert site(flagged) as Set == [
+                    '100:A>G:ASAP_PON',
+                    '200:C>T:PASS',
+                    '300:C>G:ASAP_PON',
+                    '300:C>A:PASS',
+                    '400:G>T:LowQual',
+                    '500:A>C:ASAP_PON',
+                    '600:A>C:ASAP_PON'
+                ] as Set },
+                // the match flag lands only on matched records
+                { assert flagged.findAll { it.contains('ASAP_PON_MATCH') }.size() == 4 },
+                // the pass set drops exactly the flagged records and keeps the caller's own FILTER
+                { assert site(pass) as Set == [ '200:C>T:PASS', '300:C>A:PASS', '400:G>T:LowQual' ] as Set },
+                { assert snapshot(
+                    path(process.out.stats[0][1]).readLines(),
+                    process.out.versions_bcftools
+                ).match() }
+            )
+        }
+    }
+
+    test("min_af - only panel matches above the AF threshold are flagged") {
+
+        when {
+            params {
+                asap_min_af = 0.01
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_query.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_query.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'asap' ],
+                    file("\${projectDir}/tests/fixtures/asap_pon_filter_pon.vcf.gz", checkIfExists: true),
+                    []
+                ]
+                input[2] = [ [ id:'genome' ], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta', checkIfExists: true) ]
+                input[3] = [ [ id:'genome' ], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta.fai', checkIfExists: true) ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged_all = path(process.out.flagged[0][1]).linesGzip
+            def flagged     = flagged_all.findAll { !it.startsWith('#') }
+            def header      = flagged_all.findAll { it.startsWith('##') }.join('\n')
+            def pass        = path(process.out.vcf[0][1]).linesGzip.findAll { !it.startsWith('#') }
+            def site        = { List recs -> recs.collect { r -> def f = r.split('\t'); "${f[1]}:${f[3]}>${f[4]}:${f[6]}".toString() } }
+
+            assertAll(
+                { assert header.contains('ID=ASAP_AF') },
+                // the panel AF of the matching allele (not the other panel allele) is carried over
+                { assert flagged.any { it.split('\t')[1] == '300' && it.split('\t')[4] == 'G' && it.contains('ASAP_AF=0.1;') } },
+                // the rare panel allele (AF 0.001) still matches but is not flagged
+                { assert flagged.any { it.split('\t')[1] == '500' && it.split('\t')[6] == 'PASS' && it.contains('ASAP_PON_MATCH') } },
+                { assert site(pass) as Set == [ '200:C>T:PASS', '300:C>A:PASS', '400:G>T:LowQual', '500:A>C:PASS' ] as Set },
+                { assert snapshot(path(process.out.stats[0][1]).readLines()).match() }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [ [ id:'test' ], [], [] ]
+                input[1] = [ [ id:'asap' ], [], [] ]
+                input[2] = [ [ id:'genome' ], [] ]
+                input[3] = [ [ id:'genome' ], [] ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+}

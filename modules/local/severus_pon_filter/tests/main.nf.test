@@ -1,0 +1,199 @@
+nextflow_process {
+
+    name "Test Process SEVERUS_PON_FILTER"
+    script "../main.nf"
+    process "SEVERUS_PON_FILTER"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_local"
+    tag "severus_pon_filter"
+
+    // Fixtures (tests/data), Severus 1.6 VCF layout. PON is comma-separated with the "V1,..." header
+    // line of the merged CHM13 panel; every PON entry has CI 5 unless noted.
+    //   DEL1  chr1:10000  len 500   PON DEL at +100, same length (CI 10)          -> PON (sum_diff 100 <= 160)
+    //   DEL2  chr1:50000  len 1000  PON DEL at +400, same length; FILTER kept     -> FAIL_LOWCOV_OTHER;PON (len_diff 0, sum_diff 400 <= 1000)
+    //   DEL3  chr1:100000 len 300   PON DEL at +200, length 500                   -> PASS (len_diff 200, sum_diff 400)
+    //   INS4  chr1:200000 len 300   PON INS at +999, same length                  -> PON (sum_diff 999 <= 1000)
+    //   INS5  chr1:300000 len 300   PON INS at +1001, same length                 -> PASS (near miss, 1001)
+    //   BND6  chr1:400000-chr2:70000; PON BND written chr2->chr1, +30/+50 (CI 20)  -> PON on both mates
+    //   BND7  chr1:600000-chr2:90000; PON BND chr1:600000-chr2:95000             -> PASS on both mates
+    //   DUP8  chr2:5000   len 1000  PON DEL with the same coordinates             -> PON (SV type is not compared)
+    //   DEL9  chr2:20100  len 200, INSIDE_VNTR (VNTR chr2:20000-21000); PON DEL at +400, length 400
+    //                                -> PON with the VNTR BED (sum_diff 600 <= 1005), PASS without it (> 155)
+
+    test("flags PON matches the way Severus add_pon does") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${moduleTestDir}/data/severus_somatic.vcf.gz", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'pon' ],
+                    file("${moduleTestDir}/data/pon.tsv.gz", checkIfExists: true),
+                    file("${moduleTestDir}/data/vntr.bed", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged_all = path(process.out.flagged[0][1]).linesGzip
+            def flagged     = flagged_all.findAll { !it.startsWith('#') }
+            def header      = flagged_all.findAll { it.startsWith('##') }.join('\n')
+            def pass        = path(process.out.vcf[0][1]).linesGzip.findAll { !it.startsWith('#') }
+            def site        = { List recs -> recs.collect { r -> def f = r.split('\t'); "${f[2]}:${f[6]}".toString() } }
+
+            assertAll(
+                { assert header.contains('##FILTER=<ID=PON,') },
+                { assert header.contains('##INFO=<ID=PON_MATCH,') },
+                { assert flagged.size() == 11 },
+                { assert site(flagged) == [
+                    'severus_DEL1:PON',
+                    'severus_DEL2:FAIL_LOWCOV_OTHER;PON',
+                    'severus_DEL3:PASS',
+                    'severus_INS4:PON',
+                    'severus_INS5:PASS',
+                    'severus_BND6_1:PON',
+                    'severus_BND7_1:PASS',
+                    'severus_DUP8:PON',
+                    'severus_DEL9:PON',
+                    'severus_BND6_2:PON',
+                    'severus_BND7_2:PASS'
+                ] },
+                // the matching panel entry is recorded, the same one on both BND mates
+                { assert flagged.findAll { it.contains('PON_MATCH=chr1:400030|chr2:70050|BND|0.02') }.size() == 2 },
+                { assert flagged.findAll { it.contains('PON_MATCH=') }.size() == 7 },
+                { assert site(pass) == [ 'severus_DEL3:PASS', 'severus_INS5:PASS', 'severus_BND7_1:PASS', 'severus_BND7_2:PASS' ] },
+                { assert snapshot(
+                    path(process.out.stats[0][1]).readLines(),
+                    process.out.versions_python,
+                    process.out.versions_tabix
+                ).match() }
+            )
+        }
+    }
+
+    test("without the VNTR BED a VNTR call gets the regular window") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${moduleTestDir}/data/severus_somatic.vcf.gz", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'pon' ],
+                    file("${moduleTestDir}/data/pon.tsv.gz", checkIfExists: true),
+                    []
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged = path(process.out.flagged[0][1]).linesGzip.findAll { !it.startsWith('#') }
+
+            assertAll(
+                { assert flagged.find { it.split('\t')[2] == 'severus_DEL9' }.split('\t')[6] == 'PASS' },
+                { assert snapshot(path(process.out.stats[0][1]).readLines()).match() }
+            )
+        }
+    }
+
+    test("a larger assumed CI widens the match") {
+
+        when {
+            params {
+                // INS5 misses by 1 bp (sum_diff 1001 > 1000); with CI 900, 1001 <= 5 + 900 + 150
+                severus_pon_filter_args = '--ci 900'
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${moduleTestDir}/data/severus_somatic.vcf.gz", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'pon' ],
+                    file("${moduleTestDir}/data/pon.tsv.gz", checkIfExists: true),
+                    file("${moduleTestDir}/data/vntr.bed", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged = path(process.out.flagged[0][1]).linesGzip.findAll { !it.startsWith('#') }
+
+            assertAll(
+                { assert flagged.find { it.split('\t')[2] == 'severus_INS5' }.split('\t')[6] == 'PON' },
+                { assert snapshot(path(process.out.stats[0][1]).readLines()).match() }
+            )
+        }
+    }
+
+    test("header-only VCF") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'empty' ],
+                    file("${moduleTestDir}/data/severus_empty.vcf.gz", checkIfExists: true)
+                ]
+                input[1] = [
+                    [ id:'pon' ],
+                    file("${moduleTestDir}/data/pon.tsv.gz", checkIfExists: true),
+                    file("${moduleTestDir}/data/vntr.bed", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def flagged_all = path(process.out.flagged[0][1]).linesGzip
+
+            assertAll(
+                { assert flagged_all.findAll { !it.startsWith('#') }.isEmpty() },
+                { assert path(process.out.vcf[0][1]).linesGzip.findAll { !it.startsWith('#') }.isEmpty() },
+                { assert flagged_all.any { it.startsWith('##FILTER=<ID=PON,') } },
+                { assert flagged_all.last().startsWith('#CHROM') },
+                { assert snapshot(path(process.out.stats[0][1]).readLines()).match() }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [ [ id:'test' ], [] ]
+                input[1] = [ [ id:'pon' ], [], [] ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+}

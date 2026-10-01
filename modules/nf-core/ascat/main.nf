@@ -63,6 +63,33 @@ process ASCAT {
     library(ASCAT)
     options(bitmapType='cairo')
 
+    # ASCAT draws every plot with an unqualified png() call. Returns a copy of f (and of the
+    # helpers it calls that are named in 'swap') whose png() opens a PDF of the same size instead,
+    # so each plot can additionally be written as PDF while the PNGs stay untouched.
+    pdf_instead_of_png <- function(f, swap = character()) {
+        e <- new.env(parent = environment(f))
+        e\$png <- function(filename = "Rplot%03d.png", width = 480, height = 480, units = "px", pointsize = 12, res = NA, ...) {
+            if (is.na(res)) res <- 72
+            inches <- switch(units, px = 1 / res, `in` = 1, cm = 1 / 2.54, mm = 1 / 25.4)
+            grDevices::pdf(file = sub("[.]png\$", ".pdf", filename), width = width * inches, height = height * inches, pointsize = pointsize)
+        }
+        for (name in swap) {
+            g <- get(name, envir = environment(f))
+            environment(g) <- e
+            assign(name, g, envir = e)
+        }
+        environment(f) <- e
+        f
+    }
+
+    # Run an ASCAT plotting function as is (PNGs) and, with pdf_plots, once more to get the PDFs
+    # too. Returns the result of the first run.
+    with_pdf_plots <- function(f, ..., swap = character()) {
+        out <- f(...)
+        if ($pdf_plots) invisible(pdf_instead_of_png(f, swap)(...))
+        out
+    }
+
     #build prefixes: <abspath_to_files/prefix_chr>
     allele_path = normalizePath("$allele_files")
     allele_prefix = paste0(allele_path, "/", "$allele_files", "_chr")
@@ -121,7 +148,7 @@ process ASCAT {
     print(ascat.bc)
 
     #Plot the raw data
-    ascat.plotRawData(ascat.bc, img.prefix = paste0("$prefix", ".before_correction."))
+    with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".before_correction."))
 
     # optional LogRCorrection
     if("$gc_input" != "NULL") {
@@ -131,12 +158,12 @@ process ASCAT {
             rt_input = paste0(normalizePath("$rt_input"))
             ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input, replictimingfile = rt_input)
             #Plot raw data after correction
-            ascat.plotRawData(ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc_rt."))
+            with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc_rt."))
         }
         else {
             ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input)
             #Plot raw data after correction
-            ascat.plotRawData(ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc."))
+            with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc."))
         }
     }
 
@@ -148,19 +175,16 @@ process ASCAT {
     }
 
     #Plot the segmented data
-    ascat.plotSegmentedData(ascat.bc)
+    with_pdf_plots(ascat.plotSegmentedData, ascat.bc)
 
     #Run ASCAT to fit every tumor to a model, inferring ploidy, normal cell contamination, and discrete copy numbers
-    #If psi and rho are manually set:
-    if (!is.null($purity) && !is.null($ploidy)){
-        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, rho_manual=$purity, psi_manual=$ploidy, pdfPlot = $pdf_plots)
-    } else if(!is.null($purity) && is.null($ploidy)){
-        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, rho_manual=$purity, pdfPlot = $pdf_plots)
-    } else if(!is.null($ploidy) && is.null($purity)){
-        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, psi_manual=$ploidy, pdfPlot = $pdf_plots)
-    } else {
-        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, pdfPlot = $pdf_plots)
-    }
+    #rho (purity) and psi (ploidy) are only passed when manually set
+    #The sunrise and profile plots are drawn by the internal runASCAT, so its png() is swapped too.
+    #runAscat is deterministic, so the PDF re-run draws the same fit; pdfPlot stays FALSE so the PNGs are kept.
+    runAscat_args <- list(ascat.bc, gamma = 1)
+    if (!is.null($purity)) runAscat_args\$rho_manual <- $purity
+    if (!is.null($ploidy)) runAscat_args\$psi_manual <- $ploidy
+    ascat.output <- do.call(with_pdf_plots, c(list(ascat.runAscat), runAscat_args, list(swap = "runASCAT")))
 
     #Extract metrics from ASCAT profiles
     QC = ascat.metrics(ascat.bc,ascat.output)
@@ -209,6 +233,7 @@ process ASCAT {
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def pdf_plots = task.ext.args instanceof Map && task.ext.args.pdf_plots
     """
     echo stub > ${prefix}.after_correction.gc_rt.test.tumour.germline.png
     echo stub > ${prefix}.after_correction.gc_rt.test.tumour.tumour.png
@@ -229,6 +254,9 @@ process ASCAT {
     echo stub > ${prefix}.tumour_normalLogR.txt
     echo stub > ${prefix}.tumour_tumourBAF.txt
     echo stub > ${prefix}.tumour_tumourLogR.txt
+    if [ "${pdf_plots}" = "true" ]; then
+        for png in *.png; do echo stub > "\${png%.png}.pdf"; done
+    fi
 
     echo "${task.process}:" > versions.yml
     echo ' alleleCounter: 4.3.0' >> versions.yml

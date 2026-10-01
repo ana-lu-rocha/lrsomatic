@@ -60,6 +60,26 @@
                 "deepsomatic_pon_vcfs": {
                     "type": "string",
                     "description": "Path to panel of normals VCF file(s) for DeepSomatic --population_vcfs. If not set, uses container-bundled defaults in tumor-only mode, or no PON in paired mode"
+                },
+                "asap_vcf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.vcf\\.gz$",
+                    "description": "ASAP panel-of-normals VCF used to flag/remove matched-sample somatic calls; defaults to the genome's `asap` attribute (CHM13)",
+                    "help_text": "A bgzipped VCF. Only used for matched tumour/normal samples, and only when `--matched_asap_filter` is on.",
+                    "fa_icon": "fas fa-file"
+                },
+                "matched_asap_filter": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag (FILTER=ASAP_PON) and remove ClairS/DeepSomatic matched-sample somatic small variants found in the ASAP PON",
+                    "help_text": "The flagged VCF with every matched somatic call is published under `<outdir>/<sample>/variants/asap/`; phasing, VEP and the report only see the calls that are not in the PON. Tumour-only samples are unaffected.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "matched_asap_min_af": {
+                    "type": "number",
+                    "description": "Only flag matched-sample somatic calls whose ASAP PON record has INFO/AF greater than this value. Default (unset) flags every PON match.",
+                    "fa_icon": "fas fa-hashtag"
                 }
             }
         },
@@ -343,6 +363,16 @@
                     "description": "Path or URL to the index for --vep_eve.",
                     "fa_icon": "fas fa-file",
                     "help_text": "Required when --vep_eve points at an already-merged .vcf.gz. Rejected when --vep_eve points at anything the pipeline has to merge first, since the prep task indexes the file it writes and a supplied index could not apply to it."
+                },
+                "ch_gene_list": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "default": "${projectDir}/assets/ch_genes.txt",
+                    "description": "Gene symbols (one per line) used to extract clonal haematopoiesis variants for tumour-only samples.",
+                    "help_text": "VEP-annotated somatic and germline small variants of tumour-only samples whose SYMBOL is in this list are collected into `<outdir>/<sample>/vep/ch/`. Defaults to the list shipped with the pipeline. Skip the step with `--skip_ch_variants`.",
+                    "fa_icon": "fas fa-file-alt"
                 }
             }
         },
@@ -355,6 +385,13 @@
                 "severus_minsupport": {
                     "type": "integer",
                     "default": 3
+                },
+                "severus_matched_pon": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Also apply the Severus panel of normals (`pon_file`) to matched tumour/normal samples, as a post-filter (SEVERUS_PON_FILTER) on the normal-based somatic SVs.",
+                    "help_text": "Severus applies --PON only to tumour-only samples: combined with --control-bam its PON check overrides the matched normal. For matched samples the pipeline therefore keeps Severus' normal-based somatic calls and flags those matching the PON (FILTER=PON) with Severus' own matching criteria. The flagged and PON-cleaned VCFs are written to `<sample>/variants/severus/pon_filter/`; the report uses the cleaned set.",
+                    "fa_icon": "fas fa-filter"
                 }
             }
         },
@@ -441,7 +478,10 @@
                 },
                 "ascat_pdf_plots": {
                     "type": "boolean",
-                    "description": "Boolean for ASCAT production of pdf plots (entered as string)"
+                    "default": true,
+                    "description": "Additionally write every ASCAT plot as PDF.",
+                    "help_text": "The PNG plots are always written (the report uses them); with this on, each one (raw and corrected data, ASPCF segmentation, sunrise, ASCAT and raw copy number profiles) is also written as a vector PDF next to it.",
+                    "fa_icon": "fas fa-file-pdf"
                 }
             }
         },
@@ -590,6 +630,10 @@
                 "skip_report": {
                     "type": "boolean",
                     "description": "Skip the final per-sample HTML report"
+                },
+                "skip_ch_variants": {
+                    "type": "boolean",
+                    "description": "Skip extracting clonal haematopoiesis (CH) variants for tumour-only samples"
                 }
             }
         },

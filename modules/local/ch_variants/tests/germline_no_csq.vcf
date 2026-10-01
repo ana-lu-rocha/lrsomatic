@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr17,length=83257441>
+##INFO=<ID=GERMLINE,Number=0,Type=Flag,Description="Record originates from the germline call set">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	tumor
+chr17	7675088	.	C	A	25.0	PASS	GERMLINE	GT	0/1
