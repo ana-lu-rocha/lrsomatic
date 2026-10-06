@@ -44,8 +44,7 @@ workflow PAIRED_SMALLVAR_GERMLINE {
                                 'fiber',
                                 'clair3_model',
                                 'clairS_model',
-                                'clairSTO_model',
-                                'kinetics')
+                                'clairSTO_model')
                 return [ new_meta, meta.clair3_model, bam, bai ]
             }
             .set { normal_bams_model }
@@ -111,8 +110,7 @@ workflow PAIRED_SMALLVAR_GERMLINE {
                                     'fiber',
                                     'clair3_model',
                                     'clairS_model',
-                                    'clairSTO_model',
-                                    'kinetics')
+                                    'clairSTO_model')
                 def intervals = []
                 return [new_meta, bam, bai, intervals]
             }
@@ -185,8 +183,7 @@ workflow PAIRED_SMALLVAR_GERMLINE {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return[new_meta, vcf, tbi]
         }
         .set{germline_vcf}

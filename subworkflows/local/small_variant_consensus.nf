@@ -137,8 +137,7 @@ workflow SMALL_VARIANT_CONSENSUS {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return [ new_meta, vcfs, tbi]
         }
         .set{clair_ch}
@@ -154,8 +153,7 @@ workflow SMALL_VARIANT_CONSENSUS {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return [ new_meta, vcfs, tbi]
         }
         .set{deepvariant_ch}
