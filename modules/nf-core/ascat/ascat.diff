@@ -1,19 +1,20 @@
 Changes in component 'nf-core/ascat'
+'modules/nf-core/ascat/environment.yml' is unchanged
 'modules/nf-core/ascat/meta.yml' is unchanged
 Changes in 'ascat/main.nf':
 --- modules/nf-core/ascat/main.nf
 +++ modules/nf-core/ascat/main.nf
-@@ -1,211 +1,213 @@
+@@ -1,212 +1,213 @@
  process ASCAT {
 -    tag "${meta.id}"
 +    tag "$meta.id"
      label 'process_medium'
  
      conda "${moduleDir}/environment.yml"
--    container "${workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container
+-    container "${workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container
 -        ? 'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/4c/4cf02c7911ee5e974ce7db978810770efbd8d872ff5ab3462d2a11bcf022fab5/data'
 -        : 'community.wave.seqera.io/library/ascat_cancerit-allelecount:c3e8749fa4af0e99'}"
-+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
 +        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/4c/4cf02c7911ee5e974ce7db978810770efbd8d872ff5ab3462d2a11bcf022fab5/data':
 +        'community.wave.seqera.io/library/ascat_cancerit-allelecount:c3e8749fa4af0e99' }"
  
@@ -42,7 +43,8 @@ Changes in 'ascat/main.nf':
 -    tuple val(meta), path("*png"),                        emit: png
 -    tuple val(meta), path("*purityploidy.txt"),           emit: purityploidy
 -    tuple val(meta), path("*segments.txt"),               emit: segments
--    path "versions.yml",                                  emit: versions
+-    tuple val("${task.process}"), val('bioconductor-ascat'), eval('Rscript -e "library(ASCAT); cat(as.character(packageVersion(\'ASCAT\')))"'), topic: versions, emit: versions_ascat
+-    tuple val("${task.process}"), val('alleleCounter'), eval("alleleCounter --version"), topic: versions, emit: versions_allelecounter
 +    tuple val(meta), path("*alleleFrequencies_chr*.txt"),      emit: allelefreqs
 +    tuple val(meta), path("*BAF.txt"),                         emit: bafs
 +    tuple val(meta), path("*cnvs.txt"),                        emit: cnvs
@@ -114,7 +116,8 @@ Changes in 'ascat/main.nf':
 +    def longread_bins                    = args.longread_bins                 ? ",loci_binsize = $args.longread_bins" : ""
 +    def allele_counter_flags             = args.allele_counter_flags          ? ",additional_allelecounter_flags = '$args.allele_counter_flags'" : ""
      """
-     #!/usr/bin/env Rscript
+-    Rscript - <<'EOF'
++    #!/usr/bin/env Rscript
      library(RColorBrewer)
      library(ASCAT)
      options(bitmapType='cairo')
@@ -129,29 +132,6 @@ Changes in 'ascat/main.nf':
 -        allele_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", allele_path)
 -    } else {
 -        stop("The specified allele files do not exist.")
--    }
--
--    if(length(Sys.glob(paste0(allele_prefix,"*")) ) == 0) {
--        stop(paste("No allele files found matching", allele_prefix))
--    }
--
--    if(dir.exists("${loci_files}")) {
--        # expected production use of a directory
--        loci_path   = normalizePath("${loci_files}")
--        loci_prefix = paste0(loci_path, "/", "${loci_files}", "_chr")
--    } else if(file.exists("${loci_files}")) {
--        # expected testing use of a single file
--        loci_path   = basename(normalizePath("${loci_files}"))
--        loci_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", loci_path)
--    } else {
--        stop("The specified loci files do not exist.")
--    }
--
--    if(length(Sys.glob(paste0(loci_prefix,"*")) ) == 0) {
--        stop(paste("No loci files found matching", loci_prefix))
--    }
--
--    # Prepare from BAM files
 +    # ASCAT draws every plot with an unqualified png() call. Returns a copy of f (and of the
 +    # helpers it calls that are named in 'swap') whose png() opens a PDF of the same size instead,
 +    # so each plot can additionally be written as PDF while the PNGs stay untouched.
@@ -169,23 +149,40 @@ Changes in 'ascat/main.nf':
 +        }
 +        environment(f) <- e
 +        f
-+    }
-+
+     }
+ 
+-    if(length(Sys.glob(paste0(allele_prefix,"*")) ) == 0) {
+-        stop(paste("No allele files found matching", allele_prefix))
 +    # Run an ASCAT plotting function as is (PNGs) and, with pdf_plots, once more to get the PDFs
 +    # too. Returns the result of the first run.
 +    with_pdf_plots <- function(f, ..., swap = character()) {
 +        out <- f(...)
 +        if ($pdf_plots) invisible(pdf_instead_of_png(f, swap)(...))
 +        out
-+    }
-+
+     }
+ 
+-    if(dir.exists("${loci_files}")) {
+-        # expected production use of a directory
+-        loci_path   = normalizePath("${loci_files}")
+-        loci_prefix = paste0(loci_path, "/", "${loci_files}", "_chr")
+-    } else if(file.exists("${loci_files}")) {
+-        # expected testing use of a single file
+-        loci_path   = basename(normalizePath("${loci_files}"))
+-        loci_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", loci_path)
+-    } else {
+-        stop("The specified loci files do not exist.")
+-    }
 +    #build prefixes: <abspath_to_files/prefix_chr>
 +    allele_path = normalizePath("$allele_files")
 +    allele_prefix = paste0(allele_path, "/", "$allele_files", "_chr")
-+
+ 
+-    if(length(Sys.glob(paste0(loci_prefix,"*")) ) == 0) {
+-        stop(paste("No loci files found matching", loci_prefix))
+-    }
 +    loci_path = normalizePath("$loci_files")
 +    loci_prefix = paste0(loci_path, "/", "$loci_files", "_chr")
-+
+ 
+-    # Prepare from BAM files
 +    #prepare from BAM files
      ascat.prepareHTS(
 -        tumourseqfile = "${input_tumor}",
@@ -239,7 +236,7 @@ Changes in 'ascat/main.nf':
 -
 -    # Plot the raw data
 -    ascat.plotRawData(ascat.bc, img.prefix = paste0("${prefix}", ".before_correction."))
--
+ 
 -    # Optional LogRCorrection
 -    if("${gc_input}" != "NULL") {
 -
@@ -254,22 +251,6 @@ Changes in 'ascat/main.nf':
 -        } else {
 -            stop("gc_input must be a file or folder containing one file")
 -        }
--
--        if("${rt_input}" != "NULL"){
--
--            if(dir.exists("${rt_input}")) {
--                # sarek production use of an unzipped folder containing one file
--                rt_input = list.files("${rt_input}", recursive = TRUE, full.names = TRUE)
--                if(length(rt_input) != 1 | !file.exists(rt_input)) {
--                    stop("A single rt_input should be provided!")
--                }
--            } else if(file.exists("${rt_input}")) {
--                rt_input = normalizePath("${rt_input}")
--            } else {
--                stop("rt_input must be a file or folder containing one file")
--            }
--
-+
 +    #Load the data
 +    if($normal_exists) {
 +        print("normal exists")
@@ -293,14 +274,26 @@ Changes in 'ascat/main.nf':
 +    }
 +    print("printing ascat.bc")
 +    print(ascat.bc)
-+
+ 
+-        if("${rt_input}" != "NULL"){
 +    #Plot the raw data
 +    with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".before_correction."))
-+
+ 
+-            if(dir.exists("${rt_input}")) {
+-                # sarek production use of an unzipped folder containing one file
+-                rt_input = list.files("${rt_input}", recursive = TRUE, full.names = TRUE)
+-                if(length(rt_input) != 1 | !file.exists(rt_input)) {
+-                    stop("A single rt_input should be provided!")
+-                }
+-            } else if(file.exists("${rt_input}")) {
+-                rt_input = normalizePath("${rt_input}")
+-            } else {
+-                stop("rt_input must be a file or folder containing one file")
+-            }
 +    # optional LogRCorrection
 +    if("$gc_input" != "NULL") {
 +        gc_input = paste0(normalizePath("$gc_input"))
-+
+ 
 +        if("$rt_input" != "NULL"){
 +            rt_input = paste0(normalizePath("$rt_input"))
              ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input, replictimingfile = rt_input)
@@ -313,9 +306,12 @@ Changes in 'ascat/main.nf':
 -            ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input, replictimingfile = ${rt_input})
 -            # Plot raw data after correction
 -            ascat.plotRawData(ascat.bc, img.prefix = paste0("${prefix}", ".after_correction_gc."))
--        }
--    }
--
++            ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input)
++            #Plot raw data after correction
++            with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc."))
+         }
+     }
+ 
 -    # Segment the data
 -    ascat.bc = ascat.aspcf(ascat.bc, seed=42)
 -
@@ -331,23 +327,15 @@ Changes in 'ascat/main.nf':
 -        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, rho_manual=${purity})
 -    } else if(!is.null(${ploidy}) && is.null(${purity})){
 -        ascat.output <- ascat.runAscat(ascat.bc, gamma=1, psi_manual=${ploidy})
-+            ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc_input)
-+            #Plot raw data after correction
-+            with_pdf_plots(ascat.plotRawData, ascat.bc, img.prefix = paste0("$prefix", ".after_correction_gc."))
-+        }
-+    }
-+
 +    #Segment the data
 +    if($normal_exists) {
 +        ascat.bc = ascat.aspcf(ascat.bc, seed=42, penalty = $penalty)
      } else {
 -        ascat.output <- ascat.runAscat(ascat.bc, gamma=1)
--    }
--
--    # Extract metrics from ASCAT profiles
 +        ascat.bc = ascat.aspcf(ascat.bc, seed=42, penalty = $penalty, ascat.gg = gg)
-+    }
-+
+     }
+ 
+-    # Extract metrics from ASCAT profiles
 +    #Plot the segmented data
 +    with_pdf_plots(ascat.plotSegmentedData, ascat.bc)
 +
@@ -365,8 +353,6 @@ Changes in 'ascat/main.nf':
  
 -    # Write out segmented regions (including regions with one copy of each allele)
 -    write.table(ascat.output[["segments"]], file=paste0("${prefix}", ".segments.txt"), sep="\t", quote=F, row.names=F)
--
--    # Write out CNVs in bed format
 +    #Write out segmented regions (including regions with one copy of each allele)
 +    write.table(ascat.output[["segments"]], file=paste0("$prefix", ".segments.txt"), sep="\t", quote=F, row.names=F)
 +    
@@ -380,48 +366,44 @@ Changes in 'ascat/main.nf':
 +    }, error = function(e) {
 +      message("Error in writing segments_raw: ", conditionMessage(e))
 +    })
-+
+ 
+-    # Write out CNVs in bed format
 +    #Write out CNVs in bed format
      cnvs=ascat.output[["segments"]][2:6]
 -    write.table(cnvs, file=paste0("${prefix}",".cnvs.txt"), sep="\t", quote=F, row.names=F, col.names=T)
--
--    # Write out purity and ploidy info
 +    write.table(cnvs, file=paste0("$prefix",".cnvs.txt"), sep="\t", quote=F, row.names=F, col.names=T)
-+
+ 
+-    # Write out purity and ploidy info
 +    #Write out purity and ploidy info
      summary <- tryCatch({
              matrix(c(ascat.output[["aberrantcellfraction"]], ascat.output[["ploidy"]]), ncol=2, byrow=TRUE)}, error = function(err) {
                  # error handler picks up where error was generated
-@@ -214,46 +216,52 @@
+@@ -215,32 +216,52 @@
          }
      )
      colnames(summary) <- c("AberrantCellFraction","Ploidy")
 -    write.table(summary, file=paste0("${prefix}",".purityploidy.txt"), sep="\t", quote=F, row.names=F, col.names=T)
--
--    write.table(QC, file=paste0("${prefix}", ".metrics.txt"), sep="\t", quote=F, row.names=F)
--
--    # Version export
 +    write.table(summary, file=paste0("$prefix",".purityploidy.txt"), sep="\t", quote=F, row.names=F, col.names=T)
 +
 +    write.table(QC, file=paste0("$prefix", ".metrics.txt"), sep="\t", quote=F, row.names=F)
 +
 +    # version export
-     f <- file("versions.yml","w")
-     alleleCounter_version = system(paste("alleleCounter --version"), intern = T)
--    ascat_version = as.character(packageVersion('ASCAT'))
--    writeLines(paste0('"', "${task.process}", '"', ":"), f)
++    f <- file("versions.yml","w")
++    alleleCounter_version = system(paste("alleleCounter --version"), intern = T)
 +    ascat_version = sessionInfo()\$otherPkgs\$ASCAT\$Version
 +    writeLines(paste0('"', "$task.process", '"', ":"), f)
 +    writeLines(paste("    alleleCounter:", alleleCounter_version), f)
-     writeLines(paste("    ascat:", ascat_version), f)
--    writeLines(paste("    alleleCounter:", alleleCounter_version), f)
-     close(f)
-+
++    writeLines(paste("    ascat:", ascat_version), f)
++    close(f)
+ 
+-    write.table(QC, file=paste0("${prefix}", ".metrics.txt"), sep="\t", quote=F, row.names=F)
+-    EOF
      """
  
      stub:
      def prefix = task.ext.prefix ?: "${meta.id}"
--    """
++    def pdf_plots = task.ext.args instanceof Map && task.ext.args.pdf_plots
+     """
 -    touch ${prefix}.after_correction.gc_rt.test.tumour.germline.png
 -    touch ${prefix}.after_correction.gc_rt.test.tumour.tumour.png
 -    touch ${prefix}.before_correction.test.tumour.germline.png
@@ -440,15 +422,6 @@ Changes in 'ascat/main.nf':
 -    touch ${prefix}.tumour_normalLogR.txt
 -    touch ${prefix}.tumour_tumourBAF.txt
 -    touch ${prefix}.tumour_tumourLogR.txt
--
--    cat <<-END_VERSIONS > versions.yml
--    "${task.process}":
--        bioconductor-ascat: \$(Rscript -e "library(ASCAT); cat(as.character(packageVersion('ASCAT')))")
--        alleleCounter: \$(alleleCounter --version)
--    END_VERSIONS
--    """
-+    def pdf_plots = task.ext.args instanceof Map && task.ext.args.pdf_plots
-+    """
 +    echo stub > ${prefix}.after_correction.gc_rt.test.tumour.germline.png
 +    echo stub > ${prefix}.after_correction.gc_rt.test.tumour.tumour.png
 +    echo stub > ${prefix}.before_correction.test.tumour.germline.png
@@ -476,74 +449,44 @@ Changes in 'ascat/main.nf':
 +    echo ' alleleCounter: 4.3.0' >> versions.yml
 +    echo ' ascat: 3.2.0' >> versions.yml
 +
-+    """
+     """
 +
  }
 
-'modules/nf-core/ascat/environment.yml' is unchanged
 Changes in 'ascat/tests/main.nf.test':
 --- modules/nf-core/ascat/tests/main.nf.test
 +++ modules/nf-core/ascat/tests/main.nf.test
-@@ -30,31 +30,33 @@
+@@ -30,12 +30,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                  ]
 -                input[1] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
 -                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
 -                input[3] = []
--                input[4] = []
--                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
--                input[6] = []
--                """
--            }
--        }
--
--        then {
--            assertAll (
--                { assert process.success },
--                { assert snapshot(
--                    process.out.allelefreqs,
--                    process.out.bafs,
--                    process.out.cnvs,
--                    // Logrs Tumour has a float margin discrepancy in conda due to
--                    // log and mean transformation
--                    process.out.logrs.collect{it[1].collect{file(it).name}},
--                    process.out.metrics,
--                    // This discrepancy affect the png generated
--                    process.out.png.collect{it[1].collect{file(it).name}},
--                    process.out.purityploidy,
--                    process.out.segments,
 +                input[1] = 'hg19'
 +                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
 +                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
-+                input[4] = []
+                 input[4] = []
+-                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
+-                input[6] = []
 +                input[5] = []
 +                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
 +                input[7] = []
-+                """
-+            }
-+        }
-+
-+        then {
-+            assertAll (
-+                { assert process.success },
-+                { assert snapshot(
-+                    process.out.allelefreqs,
-+                    process.out.bafs,
-+                    process.out.cnvs,
-+                    // Logrs Tumour has a float margin discrepancy in conda due to
-+                    // log and mean transformation
-+                    process.out.logrs.collect{it[1].collect{file(it).name}},
-+                    process.out.metrics,
-+                    // This discrepancy affect the png generated
-+                    process.out.png.collect{it[1].collect{file(it).name}},
-+                    process.out.purityploidy,
-+                    process.out.segments,
+                 """
+             }
+         }
+@@ -55,7 +56,9 @@
+                     process.out.png.collect{it[1].collect{file(it).name}},
+                     process.out.purityploidy,
+                     process.out.segments,
+-                    process.out.findAll { key, val -> key.startsWith("versions") }
 +                    process.out.segments_raw,
-                     process.out.versions,
-                     path(process.out.versions[0]).yaml
++                    process.out.versions,
++                    path(process.out.versions[0]).yaml
                  ).match() }
-@@ -84,31 +86,33 @@
+             )
+         }
+@@ -83,12 +86,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                  ]
@@ -556,50 +499,22 @@ Changes in 'ascat/tests/main.nf.test':
                  input[4] = []
                  input[5] = []
                  input[6] = []
--                """
--            }
--        }
--
--        then {
--            assertAll (
--                { assert process.success },
--                { assert snapshot(
--                    process.out.allelefreqs,
--                    process.out.bafs,
--                    process.out.cnvs,
--                    // Logrs Tumour has a float margin discrepancy in conda due to
--                    // log and mean transformation
--                    process.out.logrs.collect{it[1].collect{file(it).name}},
--                    process.out.metrics,
--                    // This discrepancy affect the png generated
--                    process.out.png.collect{it[1].collect{file(it).name}},
--                    process.out.purityploidy,
--                    process.out.segments,
 +                input[7] = []
-+                """
-+            }
-+        }
-+
-+        then {
-+            assertAll (
-+                { assert process.success },
-+                { assert snapshot(
-+                    process.out.allelefreqs,
-+                    process.out.bafs,
-+                    process.out.cnvs,
-+                    // Logrs Tumour has a float margin discrepancy in conda due to
-+                    // log and mean transformation
-+                    process.out.logrs.collect{it[1].collect{file(it).name}},
-+                    process.out.metrics,
-+                    // This discrepancy affect the png generated
-+                    process.out.png.collect{it[1].collect{file(it).name}},
-+                    process.out.purityploidy,
-+                    process.out.segments,
+                 """
+             }
+         }
+@@ -108,7 +112,9 @@
+                     process.out.png.collect{it[1].collect{file(it).name}},
+                     process.out.purityploidy,
+                     process.out.segments,
+-                    process.out.findAll { key, val -> key.startsWith("versions") }
 +                    process.out.segments_raw,
-                     process.out.versions,
-                     path(process.out.versions[0]).yaml
++                    process.out.versions,
++                    path(process.out.versions[0]).yaml
                  ).match() }
-@@ -138,31 +142,33 @@
+             )
+         }
+@@ -136,12 +142,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram.crai', checkIfExists: true)
                  ]
@@ -609,25 +524,6 @@ Changes in 'ascat/tests/main.nf.test':
 -                input[4] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
 -                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
 -                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
--                """
--            }
--        }
--
--        then {
--            assertAll (
--                { assert process.success },
--                { assert snapshot(
--                    process.out.allelefreqs,
--                    process.out.bafs,
--                    process.out.cnvs,
--                    // Logrs Tumour has a float margin discrepancy in conda due to
--                    // log and mean transformation
--                    process.out.logrs.collect{it[1].collect{file(it).name}},
--                    process.out.metrics,
--                    // This discrepancy affect the png generated
--                    process.out.png.collect{it[1].collect{file(it).name}},
--                    process.out.purityploidy,
--                    process.out.segments,
 +                input[1] = 'hg19'
 +                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
 +                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
@@ -635,30 +531,21 @@ Changes in 'ascat/tests/main.nf.test':
 +                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
 +                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
 +                input[7] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
-+                """
-+            }
-+        }
-+
-+        then {
-+            assertAll (
-+                { assert process.success },
-+                { assert snapshot(
-+                    process.out.allelefreqs,
-+                    process.out.bafs,
-+                    process.out.cnvs,
-+                    // Logrs Tumour has a float margin discrepancy in conda due to
-+                    // log and mean transformation
-+                    process.out.logrs.collect{it[1].collect{file(it).name}},
-+                    process.out.metrics,
-+                    // This discrepancy affect the png generated
-+                    process.out.png.collect{it[1].collect{file(it).name}},
-+                    process.out.purityploidy,
-+                    process.out.segments,
+                 """
+             }
+         }
+@@ -161,7 +168,9 @@
+                     process.out.png.collect{it[1].collect{file(it).name}},
+                     process.out.purityploidy,
+                     process.out.segments,
+-                    process.out.findAll { key, val -> key.startsWith("versions") }
 +                    process.out.segments_raw,
-                     process.out.versions,
-                     path(process.out.versions[0]).yaml
++                    process.out.versions,
++                    path(process.out.versions[0]).yaml
                  ).match() }
-@@ -193,31 +199,33 @@
+             )
+         }
+@@ -190,12 +199,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/cram/test2.paired_end.markduplicates.sorted.cram.crai', checkIfExists: true)
                  ]
@@ -668,25 +555,6 @@ Changes in 'ascat/tests/main.nf.test':
 -                input[4] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
 -                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
 -                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
--                """
--            }
--        }
--
--        then {
--            assertAll (
--                { assert process.success },
--                { assert snapshot(
--                    process.out.allelefreqs,
--                    process.out.bafs,
--                    process.out.cnvs,
--                    // Logrs Tumour has a float margin discrepancy in conda due to
--                    // log and mean transformation
--                    process.out.logrs.collect{it[1].collect{file(it).name}},
--                    process.out.metrics,
--                    // This discrepancy affect the png generated
--                    process.out.png.collect{it[1].collect{file(it).name}},
--                    process.out.purityploidy,
--                    process.out.segments,
 +                input[1] = 'hg19'
 +                input[2] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_alleles_hg38_chr21.txt', checkIfExists: true)]
 +                input[3] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/G1000_loci_hg38_chr21.txt', checkIfExists: true)]
@@ -694,30 +562,21 @@ Changes in 'ascat/tests/main.nf.test':
 +                input[5] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/chr21/sequence/genome.fasta', checkIfExists: true)]
 +                input[6] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/GC_G1000_hg38_21.txt', checkIfExists: true)]
 +                input[7] = [file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/ascat/RT_G1000_hg38_21.txt', checkIfExists: true)]
-+                """
-+            }
-+        }
-+
-+        then {
-+            assertAll (
-+                { assert process.success },
-+                { assert snapshot(
-+                    process.out.allelefreqs,
-+                    process.out.bafs,
-+                    process.out.cnvs,
-+                    // Logrs Tumour has a float margin discrepancy in conda due to
-+                    // log and mean transformation
-+                    process.out.logrs.collect{it[1].collect{file(it).name}},
-+                    process.out.metrics,
-+                    // This discrepancy affect the png generated
-+                    process.out.png.collect{it[1].collect{file(it).name}},
-+                    process.out.purityploidy,
-+                    process.out.segments,
+                 """
+             }
+         }
+@@ -215,7 +225,9 @@
+                     process.out.png.collect{it[1].collect{file(it).name}},
+                     process.out.purityploidy,
+                     process.out.segments,
+-                    process.out.findAll { key, val -> key.startsWith("versions") }
 +                    process.out.segments_raw,
-                     process.out.versions,
-                     path(process.out.versions[0]).yaml
++                    process.out.versions,
++                    path(process.out.versions[0]).yaml
                  ).match() }
-@@ -234,7 +242,8 @@
+             )
+         }
+@@ -230,7 +242,8 @@
                      minCounts :  '1',
                      min_base_qual : '1',
                      min_map_qual  : '1',
@@ -727,67 +586,40 @@ Changes in 'ascat/tests/main.nf.test':
                  ]
                  allele_folder = "G1000_alleles_hg38"
                  loci_folder   = "G1000_loci_hg38"
-@@ -271,31 +280,34 @@
+@@ -267,12 +280,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.markduplicates.sorted.bam.bai', checkIfExists: true)
                  ]
 -                input[1] = file(params.allele_folder, checkIfExists: true)
 -                input[2] = file(params.loci_folder, checkIfExists: true)
 -                input[3] = []
--                input[4] = []
--                input[5] = file(params.gc_folder, checkIfExists: true)
--                input[6] = file(params.rt_folder, checkIfExists: true)
--                """
--            }
--        }
--
--        then {
--            assertAll (
--                { assert process.success },
--                { assert snapshot(
--                    process.out.allelefreqs,
--                    process.out.bafs,
--                    process.out.cnvs,
--                    // Logrs Tumour has a float margin discrepancy in conda due to
--                    // log and mean transformation
--                    process.out.logrs.collect{it[1].collect{file(it).name}},
--                    process.out.metrics,
--                    // This discrepancy affect the png generated
--                    process.out.png.collect{it[1].collect{file(it).name}},
--                    process.out.purityploidy,
--                    process.out.segments,
 +                input[1] = 'hg19'
 +                input[2] = file(params.allele_folder, checkIfExists: true)
 +                input[3] = file(params.loci_folder, checkIfExists: true)
-+                input[4] = []
+                 input[4] = []
+-                input[5] = file(params.gc_folder, checkIfExists: true)
+-                input[6] = file(params.rt_folder, checkIfExists: true)
 +                input[5] = []
 +                input[6] = file(params.gc_folder, checkIfExists: true)
 +                input[7] = file(params.rt_folder, checkIfExists: true)
-+                """
-+            }
-+        }
-+
-+        then {
-+            assertAll (
-+                { assert process.success },
-+                { assert snapshot(
-+                    process.out.allelefreqs,
-+                    process.out.bafs,
-+                    process.out.cnvs,
-+                    // Logrs Tumour has a float margin discrepancy in conda due to
-+                    // log and mean transformation
-+                    process.out.logrs.collect{it[1].collect{file(it).name}},
-+                    process.out.metrics,
-+                    // This discrepancy affect the png generated
-+                    process.out.png.collect{it[1].collect{file(it).name}},
+                 """
+             }
+         }
+@@ -290,9 +304,12 @@
+                     process.out.metrics,
+                     // This discrepancy affect the png generated
+                     process.out.png.collect{it[1].collect{file(it).name}},
 +                    process.out.pdf.collect{it[1].collect{file(it).name}},
-+                    process.out.purityploidy,
-+                    process.out.segments,
+                     process.out.purityploidy,
+                     process.out.segments,
+-                    process.out.findAll { key, val -> key.startsWith("versions") }
 +                    process.out.segments_raw,
-                     process.out.versions,
-                     path(process.out.versions[0]).yaml
++                    process.out.versions,
++                    path(process.out.versions[0]).yaml
                  ).match() }
-@@ -309,7 +321,7 @@
+             )
+         }
+@@ -304,7 +321,7 @@
  
          when {
              params {
@@ -796,7 +628,7 @@ Changes in 'ascat/tests/main.nf.test':
              }
              process {
                  """
-@@ -320,12 +332,13 @@
+@@ -315,12 +332,13 @@
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.sorted.bam', checkIfExists: true),
                      file(params.modules_testdata_base_path + 'genomics/homo_sapiens/illumina/bam/test2.paired_end.sorted.bam.bai', checkIfExists: true)
                  ]
@@ -815,7 +647,85 @@ Changes in 'ascat/tests/main.nf.test':
 Changes in 'ascat/tests/main.nf.test.snap':
 --- modules/nf-core/ascat/tests/main.nf.test.snap
 +++ modules/nf-core/ascat/tests/main.nf.test.snap
-@@ -201,10 +201,10 @@
+@@ -79,28 +79,21 @@
+                     "test.segments.txt:md5,68b329da9893e34099c7d8ad5cb9c940"
+                 ]
+             ],
++            [
++                "versions.yml:md5,75598081a811afded7d7c1a0d08405ac"
++            ],
+             {
+-                "versions_allelecounter": [
+-                    [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
+-                    ]
+-                ],
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
+-                ]
++                "ASCAT": {
++                    "ascat": "3.2.0",
++                    "alleleCounter": "4.3.0"
++                }
+             }
+         ],
+         "meta": {
+-            "nf-test": "0.8.4",
+-            "nextflow": "25.10.4"
++            "nf-test": "0.9.2",
++            "nextflow": "25.04.3"
+         },
+-        "timestamp": "2026-03-11T15:06:33.054000323"
++        "timestamp": "2025-06-25T12:07:29.534085987"
+     },
+     "human - bam - GC - folder inputs": {
+         "content": [
+@@ -182,28 +175,21 @@
+                     "test.segments.txt:md5,68b329da9893e34099c7d8ad5cb9c940"
+                 ]
+             ],
++            [
++                "versions.yml:md5,75598081a811afded7d7c1a0d08405ac"
++            ],
+             {
+-                "versions_allelecounter": [
+-                    [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
+-                    ]
+-                ],
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
+-                ]
++                "ASCAT": {
++                    "ascat": "3.2.0",
++                    "alleleCounter": "4.3.0"
++                }
+             }
+         ],
+         "meta": {
+-            "nf-test": "0.8.4",
+-            "nextflow": "25.10.4"
++            "nf-test": "0.9.2",
++            "nextflow": "25.04.3"
+         },
+-        "timestamp": "2026-03-11T15:08:18.279376644"
++        "timestamp": "2025-06-25T12:18:54.510148361"
+     },
+     "human - bam - stub": {
+         "content": [
+@@ -215,10 +201,10 @@
                              "single_end": false
                          },
                          [
@@ -830,25 +740,23 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -215,10 +215,13 @@
+@@ -229,18 +215,21 @@
                              "single_end": false
                          },
                          [
 -                            "test.tumour_normalBAF.txt:md5,d41d8cd98f00b204e9800998ecf8427e",
 -                            "test.tumour_tumourBAF.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
--                        ]
--                    ]
 +                            "test.tumour_normalBAF.txt:md5,f50b84b1db4b83ba62ec1deacc69c260",
 +                            "test.tumour_tumourBAF.txt:md5,f50b84b1db4b83ba62ec1deacc69c260"
-+                        ]
-+                    ]
-+                ],
+                         ]
+                     ]
+                 ],
 +                "10": [
 +                    "versions.yml:md5,96d056a120ff6adecda990264ce96edd"
-                 ],
++                ],
                  "2": [
                      [
-@@ -226,7 +229,7 @@
+                         {
                              "id": "test",
                              "single_end": false
                          },
@@ -857,7 +765,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "3": [
-@@ -236,8 +239,8 @@
+@@ -250,8 +239,8 @@
                              "single_end": false
                          },
                          [
@@ -868,7 +776,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -247,7 +250,7 @@
+@@ -261,7 +250,7 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -877,7 +785,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "5": [
-@@ -257,12 +260,12 @@
+@@ -271,12 +260,12 @@
                              "single_end": false
                          },
                          [
@@ -896,7 +804,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -272,7 +275,14 @@
+@@ -286,7 +275,14 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -912,7 +820,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "7": [
-@@ -281,11 +291,26 @@
+@@ -295,21 +291,25 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -921,27 +829,31 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "8": [
--                    "versions.yml:md5,5c8663bfecf62e5eb460f76ee167d410"
-+                    [
+                     [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
 +                        {
 +                            "id": "test",
 +                            "single_end": false
 +                        },
 +                        "test.segments.txt:md5,f50b84b1db4b83ba62ec1deacc69c260"
-+                    ]
-+                ],
-+                "9": [
-+                    [
+                     ]
+                 ],
+                 "9": [
+                     [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
 +                        {
 +                            "id": "test",
 +                            "single_end": false
 +                        },
 +                        "test.segments_raw.txt:md5,f50b84b1db4b83ba62ec1deacc69c260"
-+                    ]
+                     ]
                  ],
                  "allelefreqs": [
-                     [
-@@ -294,10 +319,10 @@
+@@ -319,10 +319,10 @@
                              "single_end": false
                          },
                          [
@@ -956,7 +868,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -308,8 +333,8 @@
+@@ -333,8 +333,8 @@
                              "single_end": false
                          },
                          [
@@ -967,7 +879,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -319,7 +344,7 @@
+@@ -344,7 +344,7 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -976,7 +888,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "logrs": [
-@@ -329,8 +354,8 @@
+@@ -354,8 +354,8 @@
                              "single_end": false
                          },
                          [
@@ -987,7 +899,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -340,7 +365,23 @@
+@@ -365,7 +365,23 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -1012,7 +924,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "png": [
-@@ -350,12 +391,12 @@
+@@ -375,12 +391,12 @@
                              "single_end": false
                          },
                          [
@@ -1031,7 +943,7 @@ Changes in 'ascat/tests/main.nf.test.snap':
                          ]
                      ]
                  ],
-@@ -365,7 +406,7 @@
+@@ -390,7 +406,7 @@
                              "id": "test",
                              "single_end": false
                          },
@@ -1040,16 +952,20 @@ Changes in 'ascat/tests/main.nf.test.snap':
                      ]
                  ],
                  "segments": [
-@@ -374,19 +415,28 @@
+@@ -399,30 +415,28 @@
                              "id": "test",
                              "single_end": false
                          },
 -                        "test.segments.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
 +                        "test.segments.txt:md5,f50b84b1db4b83ba62ec1deacc69c260"
-+                    ]
-+                ],
+                     ]
+                 ],
+-                "versions_allelecounter": [
 +                "segments_raw": [
-+                    [
+                     [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
 +                        {
 +                            "id": "test",
 +                            "single_end": false
@@ -1057,23 +973,144 @@ Changes in 'ascat/tests/main.nf.test.snap':
 +                        "test.segments_raw.txt:md5,f50b84b1db4b83ba62ec1deacc69c260"
                      ]
                  ],
-                 "versions": [
--                    "versions.yml:md5,5c8663bfecf62e5eb460f76ee167d410"
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
++                "versions": [
 +                    "versions.yml:md5,96d056a120ff6adecda990264ce96edd"
                  ]
              }
          ],
          "meta": {
--            "nf-test": "0.9.2",
--            "nextflow": "25.04.3"
+-            "nf-test": "0.8.4",
 +            "nf-test": "0.9.3",
-+            "nextflow": "25.10.4"
+             "nextflow": "25.10.4"
          },
--        "timestamp": "2025-06-16T12:14:45.315601183"
+-        "timestamp": "2026-03-11T12:43:34.842697173"
 +        "timestamp": "2026-10-01T15:32:49.585621627"
      },
      "human - cram - GC - RT - additional_allelecounter": {
          "content": [
+@@ -504,28 +518,21 @@
+                     "test.segments.txt:md5,68b329da9893e34099c7d8ad5cb9c940"
+                 ]
+             ],
++            [
++                "versions.yml:md5,75598081a811afded7d7c1a0d08405ac"
++            ],
+             {
+-                "versions_allelecounter": [
+-                    [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
+-                    ]
+-                ],
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
+-                ]
++                "ASCAT": {
++                    "ascat": "3.2.0",
++                    "alleleCounter": "4.3.0"
++                }
+             }
+         ],
+         "meta": {
+-            "nf-test": "0.8.4",
+-            "nextflow": "25.10.4"
++            "nf-test": "0.9.2",
++            "nextflow": "25.04.3"
+         },
+-        "timestamp": "2026-03-11T15:07:50.852859406"
++        "timestamp": "2025-06-20T12:46:05.832790403"
+     },
+     "human - cram - GC - RT": {
+         "content": [
+@@ -607,28 +614,21 @@
+                     "test.segments.txt:md5,68b329da9893e34099c7d8ad5cb9c940"
+                 ]
+             ],
++            [
++                "versions.yml:md5,75598081a811afded7d7c1a0d08405ac"
++            ],
+             {
+-                "versions_allelecounter": [
+-                    [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
+-                    ]
+-                ],
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
+-                ]
++                "ASCAT": {
++                    "ascat": "3.2.0",
++                    "alleleCounter": "4.3.0"
++                }
+             }
+         ],
+         "meta": {
+-            "nf-test": "0.8.4",
+-            "nextflow": "25.10.4"
++            "nf-test": "0.9.2",
++            "nextflow": "25.04.3"
+         },
+-        "timestamp": "2026-03-11T15:07:25.014517492"
++        "timestamp": "2025-06-16T15:51:14.807808184"
+     },
+     "human - bam - GC - additional_allelecounter": {
+         "content": [
+@@ -708,27 +708,20 @@
+                     "test.segments.txt:md5,68b329da9893e34099c7d8ad5cb9c940"
+                 ]
+             ],
++            [
++                "versions.yml:md5,75598081a811afded7d7c1a0d08405ac"
++            ],
+             {
+-                "versions_allelecounter": [
+-                    [
+-                        "ASCAT",
+-                        "alleleCounter",
+-                        "4.3.0"
+-                    ]
+-                ],
+-                "versions_ascat": [
+-                    [
+-                        "ASCAT",
+-                        "bioconductor-ascat",
+-                        "3.2.0"
+-                    ]
+-                ]
++                "ASCAT": {
++                    "ascat": "3.2.0",
++                    "alleleCounter": "4.3.0"
++                }
+             }
+         ],
+         "meta": {
+-            "nf-test": "0.8.4",
+-            "nextflow": "25.10.4"
++            "nf-test": "0.9.2",
++            "nextflow": "25.04.3"
+         },
+-        "timestamp": "2026-03-11T15:06:58.319634812"
++        "timestamp": "2025-06-20T12:45:23.273839886"
+     }
+ }
+\ No newline at end of file
 
 'modules/nf-core/ascat/tests/nextflow.config' is unchanged
 ************************************************************

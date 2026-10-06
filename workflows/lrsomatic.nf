@@ -12,7 +12,7 @@ include { getGenomeAttribute     } from '../subworkflows/local/utils_nfcore_lrso
 include { reportGenePanelTokens  } from '../subworkflows/local/utils_nfcore_lrsomatic_pipeline'
 include { reportGenePanelIsFile  } from '../subworkflows/local/utils_nfcore_lrsomatic_pipeline'
 include { resolveVepPlugins; validateVepPluginParams } from '../subworkflows/local/utils_nfcore_lrsomatic_pipeline'
-include { validateClairstoCnaResources } from '../subworkflows/local/utils_nfcore_lrsomatic_pipeline'
+include { validateClairstoCnaResources; validateSampleModels } from '../subworkflows/local/utils_nfcore_lrsomatic_pipeline'
 include { PREPARE_VEP_PLUGINS    } from '../subworkflows/local/prepare_vep_plugins'
 
 //
@@ -193,6 +193,15 @@ workflow LRSOMATIC {
     if (params.clairsto_cna_resources && !params.skip_ascat) {
         log.warn("--clairsto_cna_resources is ignored without --skip_ascat: Verdict's germline tagging then comes from ASCAT's purity and copy number.")
     }
+    // Tumour-only DeepVariant germline calls are adjudicated only by DeepSomatic's verdict; warn once if it is not run
+    if (params.germline_var_keep.contains('deepvariant') && !params.somatic_var_keep.contains('deepsomatic')) {
+        ch_samplesheet
+            .filter { meta, _bams -> !meta.paired_data }
+            .first()
+            .subscribe { meta, _bams ->
+                log.warn("Tumour-only samples (e.g. ${meta.id}) use DeepVariant germline calls without DeepSomatic's verdict, so they may include somatic variants. Add 'deepsomatic' to --somatic_var_keep to filter them.")
+            }
+    }
     // CHM13 has no ascat_loci_rt attribute, so the built set is GC-only by construction
     build_clairsto_cna = clairsto_cna_dir == null && params.genome == 'CHM13' && params.skip_ascat
 
@@ -242,7 +251,9 @@ workflow LRSOMATIC {
     ch_samplesheet
         .join(basecall_meta)
         .map { meta, bam, basecall_model_meta, kinetics_meta ->
-            def chosen_clair3_model = meta.clair3_model ?: clair3_modelMap.get(basecall_model_meta)
+            // Same unset test as PREPARE_REFERENCE_FILES, so both pick the same model and the combine keys agree
+            def clair3_model_unset = !meta.clair3_model || meta.clair3_model.toString().trim() in ['', '[]']
+            def chosen_clair3_model = clair3_model_unset ? clair3_modelMap.get(basecall_model_meta) : meta.clair3_model
             def chosen_clairSTO_model = meta.clairSTO_model ?: clairs_modelMap.get(basecall_model_meta)
             def chosen_clairS_model = meta.clairS_model ?: clairs_modelMap.get(basecall_model_meta)
             def meta_new =[ id: meta.id,
@@ -265,12 +276,18 @@ workflow LRSOMATIC {
     //                clair3_model, clairS_model, clairSTO_model, kinetics
     //   bams are grouped per sample (multiple runs merged into a list)
 
+    // Fail fast if a sample's BAMs resolve to different caller models; they key the pairing joins
+    ch_samplesheet
+        .map { meta, _bam -> meta }
+        .collect()
+        .map { metas -> validateSampleModels(metas) }
+
     //
     // SUBWORKFLOW: PREPARE_REFERENCE_FILES -- decompress and index the FASTA, fetch Clair3 models, unpack ASCAT references
     // Input:  params.fasta, ASCAT file paths, basecall_meta, clair3_modelMap
     // Output: .prepped_fasta           -- [[:], fasta]
     //         .prepped_fai             -- [[:], fai]
-    //         .downloaded_clair3_models-- [meta(id=model_name), model_dir]
+    //         .clair3_models           -- [meta(id=model_name), model_dir or []]  -- [] = bundled with the Clair3 image
     //         .allele_files / .loci_files / .gc_file / .rt_file  -- flat file collections
     //
 
@@ -306,8 +323,8 @@ workflow LRSOMATIC {
     }
     // clairsto_cna_channel: [meta, cna_resource_dir] or [[:], []]  -- [] uses the image's own set
 
-    downloaded_clair3_models = PREPARE_REFERENCE_FILES.out.downloaded_clair3_models
-    // downloaded_clair3_models: [meta(id=clair3_model_name), model_dir]
+    clair3_models = PREPARE_REFERENCE_FILES.out.clair3_models
+    // clair3_models: [meta(id=clair3_model_name), model_dir or []]  -- [] = bundled with the Clair3 image
 
     ch_nanoplot_pre_txt = channel.empty()
 
@@ -534,7 +551,6 @@ workflow LRSOMATIC {
                             'clair3_model',
                             'clairS_model',
                             'clairSTO_model',
-                            'kinetics',
                             'n_replicates')
             // groupKey: release each sample as soon as its own replicates arrive, not when all samples have
             return [groupKey(new_meta, new_meta.n_replicates), bam, bai]
@@ -563,7 +579,8 @@ workflow LRSOMATIC {
     //
     SAMTOOLS_MERGE(
         ch_aligned_split.multiple,
-        [[],[],[],[]]
+        [[],[],[],[]],
+        ''  // index_format: indexed separately by SAMTOOLS_INDEX_MERGE
     )
 
     // Index the merged BAM to produce a BAI (SAMTOOLS_MERGE does not create BAI inline)
@@ -573,7 +590,7 @@ workflow LRSOMATIC {
     ch_single_indexed
         .mix(
             SAMTOOLS_MERGE.out.bam
-                .join(SAMTOOLS_INDEX_MERGE.out.bai)
+                .join(SAMTOOLS_INDEX_MERGE.out.index)
         )
         .set { ch_index_minimap }
     // ch_index_minimap: [meta, bam, bai]  -- one aligned BAM + index per sample (all replicates merged)
@@ -617,8 +634,7 @@ workflow LRSOMATIC {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return[new_meta, bam, bai]
         }
         .set{paired_normal_bams}
@@ -634,11 +650,11 @@ workflow LRSOMATIC {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return[new_meta, bam, bai]
         }
-        .join(paired_normal_bams)
+        // failOnMismatch: a tumor/normal meta drift must stop the run, not drop the pair
+        .join(paired_normal_bams, failOnMismatch: true)
         .set { somatic_smallvar_input }
     // somatic_smallvar_input: [meta, tumor_bam, tumor_bai, normal_bam, normal_bai]
 
@@ -663,8 +679,7 @@ workflow LRSOMATIC {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
                 def normal_bam = []
                 def normal_bai = []
                 return [new_meta, normal_bam, normal_bai, bam, bai]
@@ -699,12 +714,11 @@ workflow LRSOMATIC {
         // ascat_tumoronly_ch: [meta, purityploidy, segments]
 
         // All ASCAT files per sample for the report module, which globs by suffix
-        // groupKey: release each sample on its own three emissions, not when ASCAT finishes for all
-        ch_ascat_files = ASCAT.out.segments_raw
-            .mix(ASCAT.out.purityploidy, ASCAT.out.png)
-            .map { meta, files -> [groupKey(meta, 3), files] }
-            .groupTuple()
-            .map { meta, files -> [meta, files.flatten()] }
+        // Joined per sample; segments_raw is optional, so it arrives as null when absent
+        ch_ascat_files = ASCAT.out.purityploidy
+            .join(ASCAT.out.png)
+            .join(ASCAT.out.segments_raw, remainder: true)
+            .map { meta, purityploidy, png, segments_raw -> [meta, [purityploidy, png, segments_raw ?: []].flatten()] }
         // ch_ascat_files: [meta, [file, file, ...]]
     }
 
@@ -735,13 +749,13 @@ workflow LRSOMATIC {
 
     // SUBWORKFLOW: PAIRED_SMALLVAR_GERMLINE
     // Input:  branched_paired_ch.normal -- [meta, bam, bai]  -- normal sample BAMs only
-    //         downloaded_clair3_models  -- [meta(id=model_name), model_dir]
+    //         clair3_models  -- [meta(id=model_name), model_dir or []]
     // Output: .germline_vcf -- [meta, vcf, tbi]  -- germline SNVs/indels (Clair3 and/or DeepVariant consensus)
     PAIRED_SMALLVAR_GERMLINE (
         branched_paired_ch.normal,
         ch_fasta,
         ch_fai,
-        downloaded_clair3_models
+        clair3_models
     )
 
     // Merge germline VCFs from paired and tumor-only paths into a single channel
@@ -883,6 +897,7 @@ workflow LRSOMATIC {
             vep_cache,
             ch_fasta,
             ch_vep_extra_files,
+            [[], []],  // gtf: annotate from the cache
             vep_plugins.args,
             vep_custom,
             vep_custom_tbi
@@ -904,6 +919,7 @@ workflow LRSOMATIC {
             vep_cache,
             ch_fasta,
             ch_vep_extra_files,
+            [[], []],  // gtf: annotate from the cache
             vep_plugins.args,
             vep_custom,
             vep_custom_tbi
@@ -999,8 +1015,7 @@ workflow LRSOMATIC {
                             'fiber',
                             'clair3_model',
                             'clairS_model',
-                            'clairSTO_model',
-                            'kinetics')
+                            'clairSTO_model')
             return[new_meta, bam, bai]
         }
         .map{meta, tumor_bam, tumor_bai->
@@ -1027,8 +1042,6 @@ workflow LRSOMATIC {
         severus_input,
         [[:], params.bed_file, params.pon_file]
     )
-
-    ch_versions = ch_versions.mix(SEVERUS.out.versions)
 
     //
     // MODULE: SEVERUS_PON_FILTER (label: process_single)
@@ -1081,6 +1094,7 @@ workflow LRSOMATIC {
             vep_cache,
             ch_fasta,
             [],
+            [[], []],  // gtf: annotate from the cache
             '',
             vep_custom,
             vep_custom_tbi
@@ -1147,7 +1161,8 @@ workflow LRSOMATIC {
         //
         MOSDEPTH (
             ch_mosdepth_in,
-            ch_fasta
+            ch_fasta,
+            []  // quantize_labels: no --quantize
         )
 
         ch_mosdepth_global = MOSDEPTH.out.global_txt
@@ -1170,7 +1185,7 @@ workflow LRSOMATIC {
 
         BAM_STATS_SAMTOOLS (
             ch_index_minimap, // [meta, bam, bai]
-            ch_fasta
+            ch_fasta.combine(ch_fai).map { meta, fasta, _meta_fai, fai -> [meta, fasta, fai] }.first()
         )
 
         ch_bam_stats = BAM_STATS_SAMTOOLS.out.stats
@@ -1193,7 +1208,7 @@ workflow LRSOMATIC {
         // so build its input from PHASING_HAPLOTYPING's haplotagged BAMs rather than the
         // unphased ones severus_input carries.
         def savana_meta_keys = ['id', 'paired_data', 'platform', 'sex', 'fiber',
-            'clair3_model', 'clairS_model', 'clairSTO_model', 'kinetics']
+            'clair3_model', 'clairS_model', 'clairSTO_model']
 
         PHASING_HAPLOTYPING.out.tumor_normal_hapbams_ch
             .branch { meta, _bam, _bai ->
@@ -1293,6 +1308,7 @@ workflow LRSOMATIC {
                 vep_cache,
                 ch_fasta,
                 [],
+                [[], []],  // gtf: annotate from the cache
                 '',
                 vep_custom,
                 vep_custom_tbi
@@ -1329,12 +1345,11 @@ workflow LRSOMATIC {
         )
 
         // The WAKHAN outputs the report renders: ranked solutions, heatmap, per-solution plots
-        // groupKey: release each sample on its own three emissions
+        // Joined per sample; all three outputs are required
         ch_wakhan_files = WAKHAN.out.solutions_ranks
-            .mix(WAKHAN.out.heatmap_html, WAKHAN.out.solution_dirs)
-            .map { meta, files -> [groupKey(meta, 3), files] }
-            .groupTuple()
-            .map { meta, files -> [meta, files.flatten()] }  // solution_dirs contributes a list
+            .join(WAKHAN.out.heatmap_html)
+            .join(WAKHAN.out.solution_dirs)
+            .map { meta, ranks, heatmap, dirs -> [meta, [ranks, heatmap, dirs].flatten()] }  // dirs may be a list
         // ch_wakhan_files: [meta, [file_or_dir, ...]]
     }
 

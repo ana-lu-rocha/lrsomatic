@@ -99,25 +99,25 @@
                 },
                 "germline_var_combine": {
                     "type": "string",
-                    "description": "When two germline callers are used, specifies how to combine them. 'consensus' keeps only variants called by both callers; 'all' keeps all variants from both callers.",
+                    "description": "When two germline callers are used, specifies how to combine them. 'consensus' keeps only variants called by both callers; 'all' keeps one record per position from either caller, preferring PASS records and then the prioritised caller.",
                     "default": "all",
                     "enum": ["consensus", "all"]
                 },
                 "somatic_var_combine": {
                     "type": "string",
-                    "description": "When two somatic callers are used, specifies how to combine them. 'consensus' keeps only variants called by both callers; 'all' keeps all variants from both callers.",
+                    "description": "When two somatic callers are used, specifies how to combine them. 'consensus' keeps only variants called by both callers; 'all' keeps one record per position from either caller, preferring PASS records and then the prioritised caller.",
                     "default": "all",
                     "enum": ["consensus", "all"]
                 },
                 "prioritize_caller_germline": {
                     "type": "string",
-                    "description": "When both germline callers are used, specifies which caller's format to use for variants called by both. Must be [deepvariant, clair].",
+                    "description": "When both germline callers are used, specifies whose record to keep where both callers call a position. Must be [deepvariant, clair].",
                     "default": "clair",
                     "enum": ["deepvariant", "clair"]
                 },
                 "prioritize_caller_somatic": {
                     "type": "string",
-                    "description": "When both somatic callers are used, specifies which caller's format to use for variants called by both. Must be [deepsomatic, clair].",
+                    "description": "When both somatic callers are used, specifies whose record to keep where both callers call a position. Must be [deepsomatic, clair].",
                     "default": "clair",
                     "enum": ["deepsomatic", "clair"]
                 },
@@ -309,6 +309,20 @@
                     "description": "Path or URL to the index for --vep_clinvar.",
                     "fa_icon": "fas fa-file",
                     "help_text": "Required whenever --vep_clinvar is set: ClinVar publishes a .tbi alongside every VCF, so the pipeline does not build one."
+                },
+                "vep_clinvar_md5": {
+                    "type": "string",
+                    "description": "Expected MD5 of the --vep_clinvar VCF, checked after the pipeline downloads it.",
+                    "fa_icon": "fas fa-fingerprint",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "help_text": "A remote --vep_clinvar (http, https or ftp) is downloaded once per run by VEPPLUGIN_CLINVAR, rather than staged by GERMLINE_VEP and SOMATIC_VEP for every sample, and a VCF that does not match this MD5 fails the run, so the release cannot change silently. The GRCh38 and CHM13 defaults carry the MD5 their hosts publish; overriding --vep_clinvar drops it. A local or cloud-storage --vep_clinvar is staged as given, and takes no MD5."
+                },
+                "vep_clinvar_tbi_md5": {
+                    "type": "string",
+                    "description": "Expected MD5 of the --vep_clinvar_tbi index, checked after the pipeline downloads it.",
+                    "fa_icon": "fas fa-fingerprint",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "help_text": "Checked alongside --vep_clinvar_md5. The CHM13 default carries the MD5 Ensembl publishes; GRCh38 has none, since NCBI publishes no checksum for its indexes. Overriding --vep_clinvar or --vep_clinvar_tbi drops the default."
                 },
                 "vep_clinvar_fields": {
                     "type": "string",
@@ -507,7 +521,7 @@
                     "type": "string",
                     "format": "directory-path",
                     "description": "SigProfilerMatrixGenerator volume directory containing tsb/<sigprofiler_genome>/ (the installed genome payload).",
-                    "help_text": "Create it once with `--download_sigprofiler_genome` (published to `<outdir>/cache/sigprofiler/volume`) or with `SigProfilerMatrixGenerator install <genome> --volume <dir>`, then pass it here on later runs.",
+                    "help_text": "Create it once with `--download_sigprofiler_genome` (published to `<outdir>/cache/sigprofiler/volume`) or with `SigProfilerMatrixGenerator install <genome> --volume <dir>`, then pass it here on later runs. The volume is checked against the pipeline's SigProfilerMatrixGenerator checksums before any sample is processed. The run stops if files are missing or a checksum differs, which means a corrupted copy or, for GRCh38 and CHM13-T2T volumes installed for lrsomatic < 1.2.0, a superseded payload revision; reinstall it in either case.",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "download_sigprofiler_genome": {
